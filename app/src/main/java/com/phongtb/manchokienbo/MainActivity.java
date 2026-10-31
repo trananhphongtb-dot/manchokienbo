@@ -74,12 +74,35 @@ public class MainActivity extends Activity {
         });
 
         // ---- tiêu đề
-        TextView title = text("Màn Chờ Kiến Bò", 26, TEXT);
+        TextView title = text("Crawlscape", 28, TEXT);
         title.setTypeface(Typeface.DEFAULT_BOLD);
         col.addView(title);
-        TextView sub = text("Để yên máy một lúc, con vật sẽ bò ra phủ lên màn hình như màn chờ của Windows. Chạm một cái là mở lại ngay.", 14, SUB);
+        TextView sub = text(L("Leave your phone idle for a moment and little critters crawl across your screen, just like a classic screensaver.",
+                "Để yên máy một lúc, con vật sẽ bò ra phủ lên màn hình như màn chờ của Windows."), 14, SUB);
         sub.setPadding(0, px(6), 0, px(14));
         col.addView(sub);
+
+        // ---- ngôn ngữ (trên cùng)
+        LinearLayout lg = card(col);
+        lg.addView(header(L("Language", "Ngôn ngữ")));
+        RadioGroup langGroup = new RadioGroup(this);
+        langGroup.setOrientation(RadioGroup.HORIZONTAL);
+        RadioButton en = radio("English");
+        en.setId(4000);
+        en.setPadding(0, 0, px(24), 0);
+        RadioButton vi = radio("Tiếng Việt");
+        vi.setId(4001);
+        langGroup.addView(en);
+        langGroup.addView(vi);
+        if (Prefs.english(this)) en.setChecked(true); else vi.setChecked(true);
+        langGroup.setOnCheckedChangeListener((g, id) -> {
+            boolean toEn = id == 4000;
+            if (toEn != Prefs.english(this)) {
+                Prefs.setEnglish(this, toEn);
+                recreate();
+            }
+        });
+        lg.addView(langGroup);
 
         // ---- khung xem trước
         previewBox = new FrameLayout(this);
@@ -89,29 +112,32 @@ public class MainActivity extends Activity {
         previewBox.setBackground(pbg);
         previewBox.setClipToOutline(true);
         previewBox.addView(new IconsBg(this), new FrameLayout.LayoutParams(-1, -1));
-        col.addView(previewBox, new LinearLayout.LayoutParams(-1, px(220)));
+        LinearLayout.LayoutParams plp = new LinearLayout.LayoutParams(-1, px(220));
+        plp.setMargins(0, px(14), 0, 0);
+        col.addView(previewBox, plp);
         rebuildPreview();
 
         // ---- công tắc
         LinearLayout tg = card(col);
         toggle = new Switch(this);
-        toggle.setText("Bật màn chờ");
+        toggle.setText(L("Screensaver on", "Bật màn chờ"));
         toggle.setTextSize(18);
         toggle.setTextColor(TEXT);
         toggle.setTypeface(Typeface.DEFAULT_BOLD);
         toggle.setThumbTintList(ColorStateList.valueOf(ACCENT));
         tg.addView(toggle);
-        TextView tgSub = text("Khi bật, app chạy nền và có một thông báo nhỏ để tắt nhanh.", 13, SUB);
+        TextView tgSub = text(L("Runs in the background with a small notification to turn it off quickly.",
+                "Khi bật, app chạy nền và có một thông báo nhỏ để tắt nhanh."), 13, SUB);
         tgSub.setPadding(0, px(4), 0, 0);
         tg.addView(tgSub);
 
         // ---- chọn hoạt cảnh
         LinearLayout sc = card(col);
-        sc.addView(header("Hoạt cảnh"));
+        sc.addView(header(L("Scene", "Hoạt cảnh")));
         RadioGroup sceneGroup = new RadioGroup(this);
         String cur = Prefs.scene(this);
         for (int i = 0; i < Prefs.SCENE_KEYS.length; i++) {
-            RadioButton rb = radio(Prefs.SCENE_NAMES[i]);
+            RadioButton rb = radio(Prefs.sceneName(this, i));
             rb.setId(1000 + i);
             sceneGroup.addView(rb);
             if (Prefs.SCENE_KEYS[i].equals(cur)) rb.setChecked(true);
@@ -122,10 +148,10 @@ public class MainActivity extends Activity {
         });
         sc.addView(sceneGroup);
 
-        sc.addView(header("Số lượng"));
+        sc.addView(header(L("Amount", "Số lượng")));
         RadioGroup amountGroup = new RadioGroup(this);
         amountGroup.setOrientation(RadioGroup.HORIZONTAL);
-        String[] amounts = {"Ít", "Vừa", "Nhiều"};
+        String[] amounts = {L("Few", "Ít"), L("Normal", "Vừa"), L("Lots", "Nhiều")};
         for (int i = 0; i < 3; i++) {
             RadioButton rb = radio(amounts[i]);
             rb.setId(2000 + i);
@@ -140,6 +166,8 @@ public class MainActivity extends Activity {
         sc.addView(amountGroup);
 
         // ---- thời gian
+        final String idleTxt = L("Start after idle for:  ", "Để yên bao lâu thì hiện:  ");
+        final String runTxt = L("Turn screen off after:  ", "Hoạt cảnh chạy bao lâu rồi tắt màn:  ");
         LinearLayout tm = card(col);
         final TextView idleLabel = header("");
         tm.addView(idleLabel);
@@ -151,23 +179,24 @@ public class MainActivity extends Activity {
         SeekBar runBar = seek(Prefs.RUN_CHOICES.length - 1,
                 Prefs.indexOf(Prefs.RUN_CHOICES, Prefs.runSec(this)));
         tm.addView(runBar);
-        idleLabel.setText("Để yên bao lâu thì hiện:  " + Prefs.fmtSec(Prefs.idleSec(this)));
-        runLabel.setText("Hoạt cảnh chạy bao lâu rồi tắt màn:  " + Prefs.fmtSec(Prefs.runSec(this)));
+        idleLabel.setText(idleTxt + Prefs.fmtSec(this, Prefs.idleSec(this)));
+        runLabel.setText(runTxt + Prefs.fmtSec(this, Prefs.runSec(this)));
         idleBar.setOnSeekBarChangeListener(new SimpleSeek() {
             @Override public void onProgressChanged(SeekBar s, int p, boolean u) {
                 Prefs.setIdleSec(MainActivity.this, Prefs.IDLE_CHOICES[p]);
-                idleLabel.setText("Để yên bao lâu thì hiện:  " + Prefs.fmtSec(Prefs.IDLE_CHOICES[p]));
+                idleLabel.setText(idleTxt + Prefs.fmtSec(MainActivity.this, Prefs.IDLE_CHOICES[p]));
             }
         });
         runBar.setOnSeekBarChangeListener(new SimpleSeek() {
             @Override public void onProgressChanged(SeekBar s, int p, boolean u) {
                 Prefs.setRunSec(MainActivity.this, Prefs.RUN_CHOICES[p]);
-                runLabel.setText("Hoạt cảnh chạy bao lâu rồi tắt màn:  " + Prefs.fmtSec(Prefs.RUN_CHOICES[p]));
+                runLabel.setText(runTxt + Prefs.fmtSec(MainActivity.this, Prefs.RUN_CHOICES[p]));
             }
         });
 
         CheckBox media = new CheckBox(this);
-        media.setText("Không hiện khi đang xem video (nghe nhạc vẫn hiện)");
+        media.setText(L("Don't show while watching videos (music is fine)",
+                "Không hiện khi đang xem video (nghe nhạc vẫn hiện)"));
         media.setTextColor(TEXT);
         media.setButtonTintList(ColorStateList.valueOf(ACCENT));
         media.setChecked(Prefs.skipVideo(this));
@@ -177,37 +206,44 @@ public class MainActivity extends Activity {
 
         // ---- kiểu chạm
         LinearLayout tp = card(col);
-        tp.addView(header("Khi chạm vào màn chờ"));
+        tp.addView(header(L("When you touch the screensaver", "Khi chạm vào màn chờ")));
         RadioGroup tapGroup = new RadioGroup(this);
-        RadioButton tap1 = radio("Chạm 1 lần là mở máy luôn");
+        RadioButton tap1 = radio(L("Single tap: unlock right away", "Chạm 1 lần là mở máy luôn"));
         tap1.setId(3000);
-        RadioButton tap2 = radio("Chạm 1 lần: trêu con vật (chúng giật mình chạy, bóng vỡ...)\nChạm 2 lần liền: mở máy");
+        RadioButton tap2 = radio(L("Single tap: tease the critters (they startle, bubbles pop...)\nDouble tap: unlock",
+                "Chạm 1 lần: trêu con vật (chúng giật mình chạy, bóng vỡ...)\nChạm 2 lần liền: mở máy"));
         tap2.setId(3001);
         tapGroup.addView(tap1);
         tapGroup.addView(tap2);
         if (Prefs.doubleTap(this)) tap2.setChecked(true); else tap1.setChecked(true);
         tapGroup.setOnCheckedChangeListener((g, id) -> Prefs.setDoubleTap(this, id == 3001));
         tp.addView(tapGroup);
-        TextView tpSub = text("Ở khung xem trước phía trên, anh/chị cũng chạm thử được.", 13, SUB);
+        TextView tpSub = text(L("You can also tap the preview above to try it.",
+                "Ở khung xem trước phía trên cũng chạm thử được."), 13, SUB);
         tpSub.setPadding(0, px(4), 0, 0);
         tp.addView(tpSub);
 
         // ---- nút
-        Button try1 = button("Xem thử toàn màn hình", true);
+        Button try1 = button(L("Preview full screen", "Xem thử toàn màn hình"), true);
         try1.setOnClickListener(v -> startPreview());
         col.addView(try1, buttonLp());
 
         // ---- lưu ý
         LinearLayout nt = card(col);
-        nt.addView(header("Lưu ý"));
-        nt.addView(text(
+        nt.addView(header(L("Tips", "Lưu ý")));
+        nt.addView(text(L(
+                "• The first time, allow \"Display over other apps\".\n"
+                        + "• On Xiaomi, Oppo, Vivo or Samsung phones, allow \"Autostart\" and set battery to \"Unrestricted\" so the app isn't killed in the background.\n"
+                        + "• Set your phone's screen timeout short (15–30 sec) so the screen turns off right after the scene ends.\n"
+                        + "• Nothing shows on the lock screen; it only runs after you unlock.\n"
+                        + "• Home, Back and gesture navigation keep working as usual.",
                 "• Lần đầu cần cho phép \"Hiển thị trên ứng dụng khác\".\n"
                         + "• Máy Xiaomi, Oppo, Vivo, Samsung: cho app \"Tự khởi chạy\" và chọn pin \"Không hạn chế\" để không bị tắt ngầm.\n"
                         + "• Nên đặt thời gian tắt màn của máy ngắn (15–30 giây) để hết hoạt cảnh là màn tắt ngay.\n"
                         + "• Ở màn khóa app không hiện gì, chỉ chạy sau khi đã mở khóa.\n"
-                        + "• Nút Home, Quay lại và thanh vuốt của hệ thống vẫn hoạt động bình thường.",
+                        + "• Nút Home, Quay lại và thanh vuốt của hệ thống vẫn hoạt động bình thường."),
                 13, SUB));
-        Button bat = button("Mở cài đặt pin của app", false);
+        Button bat = button(L("Open battery settings for this app", "Mở cài đặt pin của app"), false);
         bat.setOnClickListener(v -> {
             Intent i = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
                     Uri.parse("package:" + getPackageName()));
@@ -216,6 +252,16 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams blp = buttonLp();
         blp.setMargins(0, px(10), 0, 0);
         nt.addView(bat, blp);
+
+        // ---- đánh giá (dưới cùng)
+        Button rate = button(L("⭐  Rate us on Google Play", "⭐  Đánh giá cho chúng tôi"), true);
+        rate.setOnClickListener(v -> openStore());
+        col.addView(rate, buttonLp());
+        TextView thanks = text(L("Enjoying the critters? A 5-star review helps us a lot!",
+                "Bạn thấy vui? Một đánh giá 5 sao giúp chúng tôi rất nhiều!"), 13, SUB);
+        thanks.setGravity(Gravity.CENTER);
+        thanks.setPadding(0, px(8), 0, px(8));
+        col.addView(thanks);
 
         setContentView(scroll);
     }
@@ -295,9 +341,10 @@ public class MainActivity extends Activity {
 
     private void askOverlay() {
         new AlertDialog.Builder(this)
-                .setTitle("Cần cấp quyền")
-                .setMessage("Để con vật hiện được lên trên các ứng dụng khác, anh/chị bật \"Cho phép hiển thị trên ứng dụng khác\" cho Màn Chờ Kiến Bò, rồi bấm quay lại.")
-                .setPositiveButton("Mở cài đặt", (d, w) -> {
+                .setTitle(L("Permission needed", "Cần cấp quyền"))
+                .setMessage(L("To let critters appear over other apps, turn on \"Display over other apps\" for Crawlscape, then come back.",
+                        "Để con vật hiện được lên trên các ứng dụng khác, hãy bật \"Hiển thị trên ứng dụng khác\" cho Crawlscape, rồi quay lại."))
+                .setPositiveButton(L("Open settings", "Mở cài đặt"), (d, w) -> {
                     Intent i = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                             Uri.parse("package:" + getPackageName()));
                     try {
@@ -306,7 +353,7 @@ public class MainActivity extends Activity {
                         startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION));
                     }
                 })
-                .setNegativeButton("Để sau", (d, w) -> {
+                .setNegativeButton(L("Later", "Để sau"), (d, w) -> {
                     pendingEnable = false;
                     pendingPreview = false;
                 })
@@ -339,6 +386,22 @@ public class MainActivity extends Activity {
     // ------------------------------------------------------------------ dựng giao diện
 
     private int px(float v) { return Math.round(v * dp); }
+
+    private String L(String en, String vi) { return Prefs.t(this, en, vi); }
+
+    private void openStore() {
+        String pkg = getPackageName();
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=" + pkg))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        } catch (Exception e) {
+            try {
+                startActivity(new Intent(Intent.ACTION_VIEW,
+                        Uri.parse("https://play.google.com/store/apps/details?id=" + pkg)));
+            } catch (Exception ignored) {
+            }
+        }
+    }
 
     private TextView text(String s, float sp, int color) {
         TextView t = new TextView(this);

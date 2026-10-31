@@ -27,7 +27,7 @@ public class MouseScene extends Scene {
             new Mood(SLOW, 20, 15, 30, 1f, 2.5f),
             new Mood(FREEZE, 30, 0, 0, 1.2f, 3.5f)};
     // chuột xám: lông sáng, giữa, tối, tai
-    private static final int[][] FUR = {
+    protected static final int[][] FUR = {
             {0xFFB0B0B3, 0xFF85858A, 0xFF56565B, 0xFF8A8A8F},
             {0xFF9C9CA0, 0xFF707075, 0xFF46464A, 0xFF7A7A7F},
             {0xFFBDBDBF, 0xFF909094, 0xFF626266, 0xFF96969A}};
@@ -39,13 +39,14 @@ public class MouseScene extends Scene {
     private static final float[][] HLEGS = {{0.22f, 1, 0}, {0.22f, -1, 3.1416f}, {-0.25f, 1, 3.1416f}, {-0.25f, -1, 0}};
     private static final float[][] LEGS = {{0.16f, 1, 0}, {0.16f, -1, 3.1416f}, {-0.28f, 1, 3.1416f}, {-0.28f, -1, 0}};
 
-    private static class Mouse extends Walker {
+    protected static class Mouse extends Walker {
+        boolean ham;
         float gait, s, tail, sniff, head, ear, earT, cheek;
         int[] fur;
         Paint bodyP, headP, earP, legP, stripe, belly, earInP;
     }
 
-    private final ArrayList<Mouse> list = new ArrayList<>();
+    protected final ArrayList<Mouse> list = new ArrayList<>();
     private final Paint tailP = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint pink = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint earIn = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -57,11 +58,10 @@ public class MouseScene extends Scene {
     private final Path path = new Path();
     private final Path clip = new Path();
     private final Paint hpink = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final boolean hamster;
 
-    public MouseScene(float dp, float mult, boolean hamster) {
+    /** Chuột xám và hamster chạy lẫn với nhau. */
+    public MouseScene(float dp, float mult) {
         super(dp, mult);
-        this.hamster = hamster;
         hpink.setColor(0xFFF0B8B0);
         tailP.setColor(0xFFC9B3B0);
         tailP.setStyle(Paint.Style.STROKE);
@@ -79,57 +79,62 @@ public class MouseScene extends Scene {
     @Override protected void init() {
         for (int i = 0; i < count(5); i++) {
             Mouse m = new Mouse();
+            m.ham = i % 2 == 1;
             float[] st = edgeStart(rand(40, 300) * dp);
             m.x = st[0]; m.y = st[1]; m.ang = st[2];
-            m.s = hamster ? rand(36, 54) * dp : rand(40, 68) * dp;
+            m.s = m.ham ? rand(36, 54) * dp : rand(40, 68) * dp;
             m.tail = rand(0, 6);
             m.earT = rand(0.5f, 3);
             m.mood = WALK;
             m.timer = rand(1, 2.5f);
-            m.target = hamster ? 70 * dp : 120 * dp;
-            m.fur = hamster ? HAM[i % HAM.length] : FUR[i % FUR.length];
-            float s = m.s;
-            int[] F = m.fur;
-            if (hamster) {
-                m.bodyP = new Paint(Paint.ANTI_ALIAS_FLAG);
-                m.bodyP.setShader(new RadialGradient(-0.05f * s, -0.12f * s, 0.55f * s,
-                        new int[]{F[0], F[1], F[2]}, new float[]{0f, 0.6f, 1f}, Shader.TileMode.CLAMP));
-                m.headP = new Paint(Paint.ANTI_ALIAS_FLAG);
-                m.headP.setShader(new RadialGradient(0.35f * s, -0.08f * s, 0.32f * s,
-                        new int[]{F[0], F[1], F[2]}, new float[]{0f, 0.65f, 1f}, Shader.TileMode.CLAMP));
-                m.belly = new Paint(Paint.ANTI_ALIAS_FLAG);
-                m.belly.setColor(F[3]);
-                m.stripe = new Paint(Paint.ANTI_ALIAS_FLAG);
-                m.stripe.setColor(withAlpha(F[2], 0.35f));
-                m.earP = new Paint(Paint.ANTI_ALIAS_FLAG);
-                m.earP.setColor(F[4]);
-                m.earInP = new Paint(Paint.ANTI_ALIAS_FLAG);
-                m.earInP.setColor(0xFFE8A598);
-                list.add(m);
-                continue;
-            }
-            m.bodyP = new Paint(Paint.ANTI_ALIAS_FLAG);
-            m.bodyP.setShader(new RadialGradient(-0.12f * s, -0.1f * s, 0.5f * s,
-                    new int[]{F[0], F[1], F[2]}, new float[]{0f, 0.6f, 1f}, Shader.TileMode.CLAMP));
-            m.headP = new Paint(Paint.ANTI_ALIAS_FLAG);
-            m.headP.setShader(new RadialGradient(0.3f * s, -0.07f * s, 0.35f * s,
-                    new int[]{F[0], F[1], F[2]}, new float[]{0f, 0.6f, 1f}, Shader.TileMode.CLAMP));
-            m.earP = new Paint(Paint.ANTI_ALIAS_FLAG);
-            m.earP.setColor(F[3]);
-            m.legP = new Paint(Paint.ANTI_ALIAS_FLAG);
-            m.legP.setColor(F[1]);
-            m.legP.setStyle(Paint.Style.STROKE);
-            m.legP.setStrokeCap(Paint.Cap.ROUND);
-            m.stripe = new Paint(Paint.ANTI_ALIAS_FLAG);
-            m.stripe.setColor(withAlpha(F[2], 0.25f));
+            m.target = m.ham ? 70 * dp : 120 * dp;
+            m.fur = m.ham ? HAM[(i / 2) % HAM.length] : FUR[(i / 2) % FUR.length];
+            setupPaints(m);
             list.add(m);
         }
+    }
+
+    /** Tạo bộ màu cho một con chuột / hamster theo m.fur */
+    protected void setupPaints(Mouse m) {
+        float s = m.s;
+        int[] F = m.fur;
+        if (m.ham) {
+            m.bodyP = new Paint(Paint.ANTI_ALIAS_FLAG);
+            m.bodyP.setShader(new RadialGradient(-0.05f * s, -0.12f * s, 0.55f * s,
+                    new int[]{F[0], F[1], F[2]}, new float[]{0f, 0.6f, 1f}, Shader.TileMode.CLAMP));
+            m.headP = new Paint(Paint.ANTI_ALIAS_FLAG);
+            m.headP.setShader(new RadialGradient(0.35f * s, -0.08f * s, 0.32f * s,
+                    new int[]{F[0], F[1], F[2]}, new float[]{0f, 0.65f, 1f}, Shader.TileMode.CLAMP));
+            m.belly = new Paint(Paint.ANTI_ALIAS_FLAG);
+            m.belly.setColor(F[3]);
+            m.stripe = new Paint(Paint.ANTI_ALIAS_FLAG);
+            m.stripe.setColor(withAlpha(F[2], 0.35f));
+            m.earP = new Paint(Paint.ANTI_ALIAS_FLAG);
+            m.earP.setColor(F[4]);
+            m.earInP = new Paint(Paint.ANTI_ALIAS_FLAG);
+            m.earInP.setColor(0xFFE8A598);
+            return;
+        }
+        m.bodyP = new Paint(Paint.ANTI_ALIAS_FLAG);
+        m.bodyP.setShader(new RadialGradient(-0.12f * s, -0.1f * s, 0.5f * s,
+                new int[]{F[0], F[1], F[2]}, new float[]{0f, 0.6f, 1f}, Shader.TileMode.CLAMP));
+        m.headP = new Paint(Paint.ANTI_ALIAS_FLAG);
+        m.headP.setShader(new RadialGradient(0.3f * s, -0.07f * s, 0.35f * s,
+                new int[]{F[0], F[1], F[2]}, new float[]{0f, 0.6f, 1f}, Shader.TileMode.CLAMP));
+        m.earP = new Paint(Paint.ANTI_ALIAS_FLAG);
+        m.earP.setColor(F[3]);
+        m.legP = new Paint(Paint.ANTI_ALIAS_FLAG);
+        m.legP.setColor(F[1]);
+        m.legP.setStyle(Paint.Style.STROKE);
+        m.legP.setStrokeCap(Paint.Cap.ROUND);
+        m.stripe = new Paint(Paint.ANTI_ALIAS_FLAG);
+        m.stripe.setColor(withAlpha(F[2], 0.25f));
     }
 
     @Override protected void step(float dt) {
         for (Mouse m : list) {
             m.timer -= dt;
-            if (m.timer <= 0) nextMood(m, hamster ? HAM_MOODS : MOODS);
+            if (m.timer <= 0) nextMood(m, m.ham ? HAM_MOODS : MOODS);
             float acc = m.mood == DASH ? 1000 * dp : 500 * dp;
             if (m.v < m.target) m.v = Math.min(m.target, m.v + acc * dt);
             else m.v = Math.max(m.target, m.v - 1400 * dp * dt);
@@ -166,16 +171,16 @@ public class MouseScene extends Scene {
     }
 
     @Override public void touch(float x, float y) {
-        for (Mouse m : list) scare(m, x, y, 150 * dp, hamster ? 180 * dp : 260 * dp);
+        for (Mouse m : list) scare(m, x, y, 150 * dp, m.ham ? 180 * dp : 260 * dp);
     }
 
     @Override public void draw(Canvas c) {
         for (Mouse m : list) {
-            if (hamster) drawHamster(c, m); else drawMouse(c, m);
+            if (m.ham) drawHamster(c, m); else drawMouse(c, m);
         }
     }
 
-    private void drawMouse(Canvas c, Mouse m) {
+    protected void drawMouse(Canvas c, Mouse m) {
         float s = m.s;
         if (offscreen(m.x, m.y, s * 2)) return;
         int save = c.save();

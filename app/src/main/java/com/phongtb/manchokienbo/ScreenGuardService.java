@@ -144,7 +144,7 @@ public class ScreenGuardService extends Service {
 
     private void startAsForeground() {
         NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-        NotificationChannel ch = new NotificationChannel(CHANNEL, "Màn chờ đang bật",
+        NotificationChannel ch = new NotificationChannel(CHANNEL, Prefs.t(this, "Screensaver running", "Màn chờ đang bật"),
                 NotificationManager.IMPORTANCE_MIN);
         ch.setShowBadge(false);
         nm.createNotificationChannel(ch);
@@ -157,11 +157,11 @@ public class ScreenGuardService extends Service {
 
         Notification n = new Notification.Builder(this, CHANNEL)
                 .setSmallIcon(R.drawable.ic_notif)
-                .setContentTitle("Màn chờ đang bật")
-                .setContentText("Để yên máy là hoạt cảnh sẽ hiện ra")
+                .setContentTitle(Prefs.t(this, "Crawlscape is on", "Màn chờ đang bật"))
+                .setContentText(Prefs.t(this, "Leave your phone idle and the critters come out", "Để yên máy là hoạt cảnh sẽ hiện ra"))
                 .setContentIntent(open)
                 .setOngoing(true)
-                .addAction(new Notification.Action.Builder(null, "Tắt màn chờ", stop).build())
+                .addAction(new Notification.Action.Builder(null, Prefs.t(this, "Turn off", "Tắt màn chờ"), stop).build())
                 .build();
 
         if (Build.VERSION.SDK_INT >= 34) {

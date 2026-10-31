@@ -10,6 +10,8 @@ import android.view.View;
 import com.phongtb.manchokienbo.scenes.AntScene;
 import com.phongtb.manchokienbo.scenes.BubbleScene;
 import com.phongtb.manchokienbo.scenes.ButterflyScene;
+import com.phongtb.manchokienbo.scenes.ChaseScene;
+import com.phongtb.manchokienbo.scenes.FogScene;
 import com.phongtb.manchokienbo.scenes.FireflyScene;
 import com.phongtb.manchokienbo.scenes.FishScene;
 import com.phongtb.manchokienbo.scenes.MouseScene;
@@ -32,16 +34,19 @@ public class SceneView extends View {
     private final Paint hintPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     private final boolean doubleTap;
+    private final String hint;
 
     public SceneView(Context c, String key, int amount, boolean doubleTap) {
         super(c);
         float dp = c.getResources().getDisplayMetrics().density;
         float mult = amount == 0 ? 0.5f : (amount == 2 ? 1.5f : 1f);
         if ("random".equals(key)) {
-            String[] keys = {"ants", "roach", "mouse", "hamster", "fish", "snake", "butterfly", "firefly", "bubble"};
+            String[] keys = {"ants", "roach", "mouse", "fish", "snake", "chase", "butterfly", "firefly", "bubble", "fog"};
             key = keys[new Random().nextInt(keys.length)];
         }
         this.doubleTap = doubleTap;
+        hint = doubleTap ? Prefs.t(c, "Double-tap to unlock", "Chạm 2 lần liên tiếp để mở")
+                : Prefs.t(c, "Tap anywhere to continue", "Chạm vào màn hình để tiếp tục");
         scene = create(key, dp, mult);
         ringPaint.setStyle(Paint.Style.STROKE);
         ringPaint.setStrokeWidth(2 * dp);
@@ -56,8 +61,10 @@ public class SceneView extends View {
     public static Scene create(String key, float dp, float mult) {
         switch (key) {
             case "roach": return new RoachScene(dp, mult);
-            case "mouse": return new MouseScene(dp, mult, false);
-            case "hamster": return new MouseScene(dp, mult, true);
+            case "mouse":
+            case "hamster": return new MouseScene(dp, mult);
+            case "chase": return new ChaseScene(dp, mult);
+            case "fog": return new FogScene(dp, mult);
             case "fish": return new FishScene(dp, mult);
             case "butterfly": return new ButterflyScene(dp, mult);
             case "firefly": return new FireflyScene(dp, mult);
@@ -128,7 +135,7 @@ public class SceneView extends View {
         if (showHint && age < 4f && !toBlack) {
             float a = age < 0.8f ? age / 0.8f : (age > 3f ? (4f - age) : 1f);
             hintPaint.setAlpha((int) (150 * Math.max(0f, a)));
-            canvas.drawText(doubleTap ? "Chạm 2 lần liên tiếp để mở" : "Chạm vào màn hình để tiếp tục", getWidth() / 2f,
+            canvas.drawText(hint, getWidth() / 2f,
                     getHeight() - 60 * scene.dp, hintPaint);
         }
 

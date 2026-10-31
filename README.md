@@ -1,6 +1,8 @@
-# Màn Chờ Kiến Bò
+# Crawlscape – Live Screensaver
 
-App Android màn chờ kiểu Windows: để yên máy một lúc thì kiến, gián, chuột, cá Koi, rắn, bướm, đom đóm hoặc bong bóng bò ra phủ lên màn hình. Có thể chọn chạm 1 lần là mở, hoặc chạm 1 lần để trêu con vật và chạm 2 lần liền mới mở. Hoạt cảnh chạy đủ thời gian thì màn tối dần rồi tắt như bình thường.
+(tên cũ: Màn Chờ Kiến Bò)
+
+App Android màn chờ kiểu Windows: để yên máy một lúc thì kiến, gián, chuột & hamster, cá Koi, rắn, mèo đuổi chuột, bướm, đom đóm, bong bóng hoặc mây mù hiện ra phủ lên màn hình. Giao diện tiếng Anh (mặc định) và tiếng Việt. Có thể chọn chạm 1 lần là mở, hoặc chạm 1 lần để trêu con vật và chạm 2 lần liền mới mở. Hoạt cảnh chạy đủ thời gian thì màn tối dần rồi tắt như bình thường.
 
 ## Dựng APK bằng GitHub
 

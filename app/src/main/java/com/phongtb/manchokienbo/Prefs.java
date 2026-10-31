@@ -12,18 +12,34 @@ public final class Prefs {
     /** 0 = không tự tắt màn. */
     public static final int[] RUN_CHOICES = {15, 30, 45, 60, 90, 120, 180, 300, 600, 0};
 
-    public static final String[] SCENE_KEYS = {"random", "ants", "roach", "mouse", "hamster", "fish", "snake", "butterfly", "firefly", "bubble"};
-    public static final String[] SCENE_NAMES = {
+    public static final String[] SCENE_KEYS = {"random", "ants", "roach", "mouse", "fish", "snake",
+            "chase", "butterfly", "firefly", "bubble", "fog"};
+    private static final String[] SCENE_VI = {
             "🎲  Ngẫu nhiên mỗi lần",
             "🐜  Đàn kiến tha mồi",
             "🪳  Gián chạy",
-            "🐭  Chuột xám",
-            "🐹  Chuột Hamster",
+            "🐭  Chuột xám & Hamster",
             "🐟  Hồ cá Koi",
             "🐍  Rắn bò",
+            "🐱  Mèo đuổi chuột",
             "🦋  Bướm bay",
             "✨  Đom đóm đêm",
-            "🫧  Bong bóng xà phòng"};
+            "🫧  Bong bóng xà phòng",
+            "🌫️  Mây mù"};
+    private static final String[] SCENE_EN = {
+            "🎲  Surprise me",
+            "🐜  Marching ants",
+            "🪳  Scurrying cockroaches",
+            "🐭  Mice & hamsters",
+            "🐟  Koi pond",
+            "🐍  Slithering snakes",
+            "🐱  Cat chases mouse",
+            "🦋  Butterflies",
+            "✨  Fireflies at night",
+            "🫧  Soap bubbles",
+            "🌫️  Drifting fog"};
+
+    public static String sceneName(Context c, int i) { return english(c) ? SCENE_EN[i] : SCENE_VI[i]; }
 
     private Prefs() {}
 
@@ -40,7 +56,10 @@ public final class Prefs {
     public static int runSec(Context c) { return sp(c).getInt("run", 60); }
     public static void setRunSec(Context c, int v) { sp(c).edit().putInt("run", v).apply(); }
 
-    public static String scene(Context c) { return sp(c).getString("scene", "random"); }
+    public static String scene(Context c) {
+        String k = sp(c).getString("scene", "random");
+        return "hamster".equals(k) ? "mouse" : k; // bản cũ có màn hamster riêng
+    }
     public static void setScene(Context c, String v) { sp(c).edit().putString("scene", v).apply(); }
 
     /** 0 = ít, 1 = vừa, 2 = nhiều */
@@ -60,10 +79,18 @@ public final class Prefs {
         return 0;
     }
 
-    public static String fmtSec(int s) {
-        if (s == 0) return "Không tự tắt";
-        if (s < 60) return s + " giây";
-        if (s % 60 == 0) return (s / 60) + " phút";
-        return (s / 60) + " phút " + (s % 60) + " giây";
+    /** Ngôn ngữ: mặc định tiếng Anh */
+    public static boolean english(Context c) { return sp(c).getBoolean("english", true); }
+    public static void setEnglish(Context c, boolean v) { sp(c).edit().putBoolean("english", v).apply(); }
+
+    /** Chọn chữ theo ngôn ngữ đang dùng */
+    public static String t(Context c, String en, String vi) { return english(c) ? en : vi; }
+
+    public static String fmtSec(Context c, int s) {
+        boolean en = english(c);
+        if (s == 0) return en ? "Never" : "Không tự tắt";
+        if (s < 60) return s + (en ? " sec" : " giây");
+        if (s % 60 == 0) return (s / 60) + (en ? " min" : " phút");
+        return (s / 60) + (en ? " min " : " phút ") + (s % 60) + (en ? " sec" : " giây");
     }
 }
