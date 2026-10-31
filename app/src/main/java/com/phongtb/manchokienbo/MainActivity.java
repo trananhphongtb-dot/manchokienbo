@@ -104,6 +104,9 @@ public class MainActivity extends Activity {
         });
         lg.addView(langGroup);
 
+        // ---- cài đặt nhanh 4 bước
+        buildSetup(col);
+
         // ---- khung xem trước
         previewBox = new FrameLayout(this);
         GradientDrawable pbg = new GradientDrawable();
@@ -208,10 +211,9 @@ public class MainActivity extends Activity {
         LinearLayout tp = card(col);
         tp.addView(header(L("When you touch the screensaver", "Khi chạm vào màn chờ")));
         RadioGroup tapGroup = new RadioGroup(this);
-        RadioButton tap1 = radio(L("Single tap: unlock right away", "Chạm 1 lần là mở máy luôn"));
+        RadioButton tap1 = radio(L("1 tap: unlock", "Chạm 1 lần: mở màn hình"));
         tap1.setId(3000);
-        RadioButton tap2 = radio(L("Single tap: tease the critters (they startle, bubbles pop...)\nDouble tap: unlock",
-                "Chạm 1 lần: trêu con vật (chúng giật mình chạy, bóng vỡ...)\nChạm 2 lần liền: mở máy"));
+        RadioButton tap2 = radio(L("1 tap: play  ·  2 taps: unlock", "Chạm 1 lần: tương tác  ·  2 lần: mở màn hình"));
         tap2.setId(3001);
         tapGroup.addView(tap1);
         tapGroup.addView(tap2);
@@ -277,6 +279,7 @@ public class MainActivity extends Activity {
             pendingPreview = false;
             startPreview();
         }
+        refreshSetup();
         boolean on = Prefs.enabled(this) && can;
         if (on) startGuard();
         toggle.setOnCheckedChangeListener(null);
@@ -388,6 +391,158 @@ public class MainActivity extends Activity {
     private int px(float v) { return Math.round(v * dp); }
 
     private String L(String en, String vi) { return Prefs.t(this, en, vi); }
+
+    // ------------------------------------------------------------------ cài đặt nhanh
+
+    private LinearLayout setupCard;
+    private TextView setupHeader;
+    private final LinearLayout[] stepRows = new LinearLayout[4];
+    private final TextView[] stepBadges = new TextView[4];
+    private final Button[] stepButtons = new Button[4];
+
+    private void buildSetup(LinearLayout col) {
+        setupCard = card(col);
+        setupHeader = header("");
+        setupCard.addView(setupHeader);
+        String[][] txt = {
+                {L("Allow restricted settings", "Cho phép cài đặt bị hạn chế"),
+                        L("Only if step 2 is greyed out: App info → ⋮ (top right) → Allow restricted settings.",
+                                "Chỉ cần khi bước 2 bị mờ: Thông tin ứng dụng → ⋮ (góc trên phải) → Cho phép cài đặt bị hạn chế."),
+                        L("Open", "Mở")},
+                {L("Display over other apps", "Hiển thị trên ứng dụng khác"),
+                        L("Lets the critters appear on top of your screen.", "Để con vật hiện được lên trên màn hình."),
+                        L("Allow", "Cho phép")},
+                {L("Unrestricted battery", "Pin không hạn chế"),
+                        L("App info → Battery → Unrestricted, so the phone won't stop the app.",
+                                "Thông tin ứng dụng → Pin → Không hạn chế, để máy không tắt ngầm app."),
+                        L("Open", "Mở")},
+                {L("Allow notifications", "Cho phép thông báo"),
+                        L("Then the screensaver starts by itself.", "Xong bước này màn chờ tự chạy."),
+                        L("Allow", "Cho phép")}};
+        for (int i = 0; i < 4; i++) {
+            final int step = i + 1;
+            LinearLayout row = new LinearLayout(this);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setPadding(0, px(10), 0, px(4));
+            LinearLayout left = new LinearLayout(this);
+            left.setOrientation(LinearLayout.VERTICAL);
+            LinearLayout titleRow = new LinearLayout(this);
+            titleRow.setOrientation(LinearLayout.HORIZONTAL);
+            titleRow.setGravity(Gravity.CENTER_VERTICAL);
+            TextView badge = text(String.valueOf(step), 13, 0xFF10200A);
+            badge.setTypeface(Typeface.DEFAULT_BOLD);
+            badge.setGravity(Gravity.CENTER);
+            titleRow.addView(badge, new LinearLayout.LayoutParams(px(24), px(24)));
+            TextView tt = text(txt[i][0], 15, TEXT);
+            tt.setTypeface(Typeface.DEFAULT_BOLD);
+            tt.setPadding(px(8), 0, 0, 0);
+            titleRow.addView(tt);
+            left.addView(titleRow);
+            TextView dd = text(txt[i][1], 12.5f, SUB);
+            dd.setPadding(0, px(4), px(8), px(6));
+            left.addView(dd);
+            Button b = button(txt[i][2], true);
+            b.setTextSize(14);
+            b.setOnClickListener(v -> doStep(step));
+            left.addView(b, new LinearLayout.LayoutParams(px(110), px(38)));
+            row.addView(left, new LinearLayout.LayoutParams(0, -2, 1f));
+            row.addView(new StepArt(this, step, Prefs.english(this)), new LinearLayout.LayoutParams(px(136), px(96)));
+            setupCard.addView(row);
+            stepRows[i] = row;
+            stepBadges[i] = badge;
+            stepButtons[i] = b;
+        }
+    }
+
+    private boolean stepDone(int step) {
+        switch (step) {
+            case 1: return Build.VERSION.SDK_INT < 33 || Prefs.step1Done(this) || Settings.canDrawOverlays(this);
+            case 2: return Settings.canDrawOverlays(this);
+            case 3: {
+                android.os.PowerManager pm = (android.os.PowerManager) getSystemService(POWER_SERVICE);
+                return pm != null && pm.isIgnoringBatteryOptimizations(getPackageName());
+            }
+            default: {
+                android.app.NotificationManager nm = (android.app.NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+                return nm != null && nm.areNotificationsEnabled();
+            }
+        }
+    }
+
+    private void refreshSetup() {
+        if (setupCard == null) return;
+        boolean all = true;
+        int current = 0;
+        for (int i = 0; i < 4; i++) {
+            boolean done = stepDone(i + 1);
+            if (!done && current == 0) current = i + 1;
+            all &= done;
+        }
+        for (int i = 0; i < 4; i++) {
+            boolean done = stepDone(i + 1);
+            GradientDrawable g = new GradientDrawable();
+            g.setShape(GradientDrawable.OVAL);
+            g.setColor(done ? ACCENT : (current == i + 1 ? 0xFFFFC107 : 0xFF55625B));
+            stepBadges[i].setBackground(g);
+            stepBadges[i].setText(done ? "✓" : String.valueOf(i + 1));
+            stepButtons[i].setVisibility(done ? View.GONE : View.VISIBLE);
+            stepRows[i].setAlpha(done || current == i + 1 ? 1f : 0.55f);
+            // xong rồi thì thu gọn ảnh minh họa
+            stepRows[i].getChildAt(1).setVisibility(done ? View.GONE : View.VISIBLE);
+        }
+        if (all) {
+            setupHeader.setText(L("✓ All set — the screensaver is on", "✓ Đã xong — màn chờ đang bật"));
+            if (!Prefs.setupFinished(this)) { // xong bước cuối: tự bật màn chờ
+                Prefs.setSetupFinished(this, true);
+                Prefs.setEnabled(this, true);
+                startGuard();
+            }
+        } else {
+            setupHeader.setText(L("Quick setup · 4 steps", "Cài đặt nhanh · 4 bước"));
+        }
+    }
+
+    private void doStep(int step) {
+        String pkg = getPackageName();
+        try {
+            switch (step) {
+                case 1:
+                    Prefs.setStep1Done(this, true);
+                    startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + pkg)));
+                    break;
+                case 2:
+                    startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + pkg)));
+                    break;
+                case 3:
+                    startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + pkg)));
+                    break;
+                default:
+                    if (Build.VERSION.SDK_INT >= 33 && !Prefs.notifAsked(this)
+                            && checkSelfPermission("android.permission.POST_NOTIFICATIONS") != PackageManager.PERMISSION_GRANTED) {
+                        Prefs.setNotifAsked(this, true);
+                        requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 5);
+                    } else {
+                        startActivity(new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                                .putExtra(Settings.EXTRA_APP_PACKAGE, pkg));
+                    }
+                    break;
+            }
+        } catch (Exception e) {
+            try {
+                startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + pkg)));
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
+    @Override public void onRequestPermissionsResult(int code, String[] perms, int[] res) {
+        super.onRequestPermissionsResult(code, perms, res);
+        refreshSetup();
+        boolean on = Prefs.enabled(this) && Settings.canDrawOverlays(this);
+        toggle.setOnCheckedChangeListener(null);
+        toggle.setChecked(on);
+        toggle.setOnCheckedChangeListener((v, checked) -> onToggle(checked));
+    }
 
     private void openStore() {
         String pkg = getPackageName();

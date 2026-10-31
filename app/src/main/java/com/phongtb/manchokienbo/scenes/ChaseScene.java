@@ -9,19 +9,20 @@ import android.graphics.Shader;
 import java.util.ArrayList;
 
 /**
- * Mèo đuổi chuột (nhìn từ trên xuống): mèo mướp cam đi dạo, rình (tai cụp, đuôi giật),
- * rồi vồ đuổi; chuột xám lách né, mèo đuổi hụt thì ngồi thở hoặc chóng mặt quay sao.
+ * Mèo đuổi chuột (nhìn từ trên xuống): chuột xám chạy, mèo mướp cam bám sát phía sau
+ * (không bao giờ chồng lên nhau). Chuột khựng lại ngó thì mèo nép người rồi vồ vào chỗ đó,
+ * chuột né ngang, mèo vồ hụt thì ngồi ngơ ngác hoặc chóng mặt quay sao.
  */
 public class ChaseScene extends MouseScene {
 
-    private static final int WANDER = 0, STALK = 1, CHASE = 2, REST = 3, DIZZY = 4;
+    private static final int FOLLOW = 0, CROUCH = 1, POUNCE = 2, REST = 3, DIZZY = 4;
     private static final float[][] LEGS = {{0.17f, 1, 0}, {0.17f, -1, 3.1416f}, {-0.3f, 1, 3.1416f}, {-0.3f, -1, 0}};
 
     private static class Cat extends Walker {
-        float s, gait, tail, pt, dizzy, ears;
-        int phase;
+        float s, gait, tail, pt, dizzy, ears, lx, ly;
+        int phase, dodge;
+        boolean fast;
         Mouse mouse;
-        float juked;
     }
 
     private final ArrayList<Cat> cats = new ArrayList<>();
@@ -76,16 +77,17 @@ public class ChaseScene extends MouseScene {
             m.s = 48 * dp;
             m.earT = 1;
             m.fur = FUR[0];
-            m.mood = SLOW;
+            m.mood = WALK;
             m.timer = 1e9f;
             setupPaints(m);
             list.add(m);
 
             Cat cat = new Cat();
-            float[] st = edgeStart(40 * dp);
-            cat.x = st[0]; cat.y = st[1]; cat.ang = st[2];
+            cat.x = m.x - 150 * dp;
+            cat.y = m.y;
+            cat.ang = 0;
             cat.s = s;
-            cat.pt = rand(2, 4);
+            cat.pt = rand(3, 5);
             cat.mouse = m;
             cats.add(cat);
         }
@@ -98,7 +100,7 @@ public class ChaseScene extends MouseScene {
                 m.ang = (float) Math.atan2(m.y - y, m.x - x);
                 m.v = 200 * dp;
             }
-            if (Math.hypot(cat.x - x, cat.y - y) < 150 * dp && cat.phase != CHASE) {
+            if (Math.hypot(cat.x - x, cat.y - y) < 150 * dp && cat.phase != POUNCE) {
                 cat.phase = DIZZY; // bị trêu: mèo chóng mặt
                 cat.pt = 1.5f;
                 cat.dizzy = 0;
@@ -109,80 +111,98 @@ public class ChaseScene extends MouseScene {
     @Override protected void step(float dt) {
         for (Cat cat : cats) {
             Mouse m = cat.mouse;
-            float dx = m.x - cat.x, dy = m.y - cat.y;
-            float dist = (float) Math.hypot(dx, dy), toM = (float) Math.atan2(dy, dx);
             cat.pt -= dt;
             float cv = 0, mv = 0;
+            float back = cat.s * 0.95f; // khoảng cách mèo bám sau lưng chuột
             switch (cat.phase) {
-                case WANDER:
-                    cv = 45 * dp;
-                    if (!bounce(cat, 60 * dp, 2f, dt)) {
-                        cat.turn += rand(-1f, 1f) * 2f * dt;
-                        cat.turn *= 0.98f;
-                        cat.ang += cat.turn * dt;
+                case FOLLOW: { // chuột chạy, mèo bám theo phía sau
+                    m.mood = cat.fast ? DASH : WALK;
+                    mv = (cat.fast ? 190 : 110) * dp;
+                    if (!bounce(m, 60 * dp, 4f, dt)) {
+                        m.turn += rand(-3f, 3f) * dt;
+                        m.turn *= 0.97f;
+                        m.turn = clamp(m.turn, -1.6f, 1.6f);
+                        m.ang += m.turn * dt;
                     }
-                    m.mood = SLOW;
-                    mv = 30 * dp;
-                    if (cat.pt <= 0) { cat.phase = STALK; cat.pt = rand(2.5f, 4f); }
-                    break;
-                case STALK: // rình, chuột vẫn hít ngửi chưa biết gì
-                    cv = 32 * dp;
-                    cat.ang += clamp(angDiff(toM, cat.ang), -1.5f * dt, 1.5f * dt);
-                    m.mood = (time % 3f) < 1.5f ? FREEZE : SLOW;
-                    mv = m.mood == FREEZE ? 0 : 25 * dp;
-                    if (dist < 170 * dp || cat.pt <= 0) { cat.phase = CHASE; cat.pt = rand(4f, 6.5f); }
-                    break;
-                case CHASE: {
-                    cv = 240 * dp;
-                    cat.ang += clamp(angDiff(toM, cat.ang), -2.6f * dt, 2.6f * dt);
-                    m.mood = DASH;
-                    mv = 270 * dp;
-                    float away = (float) Math.atan2(-dy, -dx) + sin(time * 6f) * 0.6f;
-                    if (!bounce(m, 40 * dp, 9f, dt)) m.ang += clamp(angDiff(away, m.ang), -7f * dt, 7f * dt);
-                    if (dist < 45 * dp && cat.juked <= 0) { // lách né
-                        m.ang += (rnd.nextBoolean() ? 1 : -1) * 1.7f;
-                        cat.juked = 0.5f;
-                    }
-                    if (cat.juked > 0) cat.juked -= dt;
-                    if (cat.pt <= 0 || dist < 22 * dp) {
-                        if (rnd.nextFloat() < 0.45f) { cat.phase = DIZZY; cat.pt = 2; cat.dizzy = 0; }
-                        else { cat.phase = REST; cat.pt = rand(2.5f, 4f); }
-                    }
+                    float tx = m.x - cos(m.ang) * back, ty = m.y - sin(m.ang) * back;
+                    float d = (float) Math.hypot(tx - cat.x, ty - cat.y);
+                    cat.ang += clamp(angDiff((float) Math.atan2(ty - cat.y, tx - cat.x), cat.ang), -4f * dt, 4f * dt);
+                    cv = clamp(d * 2.2f, 0, 260 * dp);
+                    if (cat.pt <= 0) { cat.phase = CROUCH; cat.pt = rand(0.7f, 1.1f); }
+                    if (rnd.nextFloat() < dt * 0.3f) cat.fast = !cat.fast;
                     break;
                 }
-                case REST: // mèo ngồi thở, chuột đứng xa ngó lại
+                case CROUCH: // chuột khựng lại ngó, mèo nép người chuẩn bị vồ
                     m.mood = FREEZE;
-                    m.ang += clamp(angDiff((float) Math.atan2(-dy, -dx) + 3.1416f, m.ang), -3f * dt, 3f * dt);
-                    if (cat.pt <= 0) { cat.phase = WANDER; cat.pt = rand(2f, 4f); }
+                    cv = 20 * dp;
+                    cat.ang += clamp(angDiff((float) Math.atan2(m.y - cat.y, m.x - cat.x), cat.ang), -3f * dt, 3f * dt);
+                    if (cat.pt <= 0) {
+                        cat.phase = POUNCE;
+                        cat.pt = 0.5f;
+                        cat.lx = m.x;
+                        cat.ly = m.y;
+                        cat.dodge = rnd.nextBoolean() ? 1 : -1;
+                    }
                     break;
-                default: // chóng mặt
-                    cat.dizzy += dt;
-                    cat.ang += sin(time * 5f) * 1.5f * dt;
-                    m.mood = WALK;
-                    mv = 60 * dp;
-                    if (cat.pt <= 0) { cat.phase = WANDER; cat.pt = rand(2f, 4f); }
+                case POUNCE: // vồ vào chỗ chuột vừa đứng, chuột né ngang vào phút chót
+                    cv = 420 * dp;
+                    cat.ang += clamp(angDiff((float) Math.atan2(cat.ly - cat.y, cat.lx - cat.x), cat.ang), -6f * dt, 6f * dt);
+                    if (cat.pt < 0.38f) {
+                        m.mood = DASH;
+                        mv = 330 * dp;
+                        float side = (float) Math.atan2(m.y - cat.y, m.x - cat.x) + cat.dodge * 1.5708f;
+                        m.ang += clamp(angDiff(side, m.ang), -12f * dt, 12f * dt);
+                    } else {
+                        m.mood = FREEZE;
+                    }
+                    if (cat.pt <= 0 || Math.hypot(cat.lx - cat.x, cat.ly - cat.y) < 12 * dp) {
+                        cat.phase = rnd.nextBoolean() ? REST : DIZZY;
+                        cat.pt = rand(1.4f, 2.2f);
+                        cat.dizzy = 0;
+                    }
+                    break;
+                default: // vồ hụt: mèo ngồi ngơ ngác / chóng mặt, chuột chạy xa
+                    if (cat.phase == DIZZY) {
+                        cat.dizzy += dt;
+                        cat.ang += sin(time * 5f) * 1.2f * dt;
+                    }
+                    m.mood = DASH;
+                    mv = 200 * dp;
+                    if (!bounce(m, 60 * dp, 6f, dt)) {
+                        m.ang += clamp(angDiff((float) Math.atan2(m.y - cat.y, m.x - cat.x), m.ang), -3f * dt, 3f * dt);
+                    }
+                    if (cat.pt <= 0) { cat.phase = FOLLOW; cat.pt = rand(3f, 6f); cat.fast = false; }
                     break;
             }
-            if (cat.phase != WANDER) bounce(cat, 30 * dp, 3f, dt);
-            if (cat.phase != CHASE && !bounce(m, 40 * dp, 6f, dt) && mv > 0) {
-                m.turn += rand(-3f, 3f) * dt;
-                m.turn *= 0.97f;
-                m.ang += m.turn * dt;
-            }
-            cat.v = lerp(cat.v, cv, Math.min(1f, dt * (cat.phase == CHASE ? 3f : 4f)));
-            m.v = lerp(m.v, mv, Math.min(1f, dt * 6f));
+            cat.v = lerp(cat.v, cv, Math.min(1f, dt * (cat.phase == POUNCE ? 8f : 4f)));
+            m.v = lerp(m.v, mv, Math.min(1f, dt * (m.mood == DASH ? 10f : 6f)));
             cat.x += cos(cat.ang) * cat.v * dt;
             cat.y += sin(cat.ang) * cat.v * dt;
             m.x += cos(m.ang) * m.v * dt;
             m.y += sin(m.ang) * m.v * dt;
+
+            // không bao giờ chồng lên nhau: đẩy mèo lùi ra
+            float dx = cat.x - m.x, dy = cat.y - m.y, dd = (float) Math.hypot(dx, dy);
+            float minD = cat.s * 0.62f + m.s * 0.5f;
+            if (dd < minD && dd > 0.01f) {
+                cat.x = m.x + dx / dd * minD;
+                cat.y = m.y + dy / dd * minD;
+            }
+            // luôn ở trong màn hình
+            float cm = cat.s * 0.3f, mm = m.s * 0.4f;
+            cat.x = clamp(cat.x, cm, w - cm);
+            cat.y = clamp(cat.y, cm, h - cm);
+            m.x = clamp(m.x, mm, w - mm);
+            m.y = clamp(m.y, mm, h - mm);
+
             cat.gait += cat.v * dt / (cat.s * 0.12f);
-            cat.tail += dt * (cat.phase == STALK ? 6f : 2f);
-            cat.ears = lerp(cat.ears, cat.phase == STALK ? 1f : 0f, Math.min(1f, dt * 5f));
+            cat.tail += dt * (cat.phase == CROUCH ? 7f : 2f);
+            cat.ears = lerp(cat.ears, (cat.phase == CROUCH || cat.phase == POUNCE) ? 1f : 0f, Math.min(1f, dt * 6f));
             m.gait += m.v * dt / (m.s * 0.11f);
             m.tail += dt * (1.2f + m.v / (45 * dp));
             m.sniff += dt * (m.mood == FREEZE ? 18f : 4f);
             float wantHead = m.mood == FREEZE
-                    ? clamp(angDiff((float) Math.atan2(cat.y - m.y, cat.x - m.x), m.ang), -0.6f, 0.6f) : 0f;
+                    ? clamp(angDiff((float) Math.atan2(cat.y - m.y, cat.x - m.x), m.ang), -0.7f, 0.7f) : 0f;
             m.head = lerp(m.head, wantHead, Math.min(1f, dt * 6f));
         }
     }
@@ -209,7 +229,7 @@ public class ChaseScene extends MouseScene {
             float t = i / (float) segs;
             float ang = sin(k.tail - t * 3f) * 0.35f * t + sit * t * 2.2f;
             float nx = px - cos(ang) * 0.045f * s;
-            float ny = py + sin(ang) * 0.045f * s * 1.6f + (k.phase == STALK ? sin(k.tail * 2f) * t * 0.01f * s : 0f);
+            float ny = py + sin(ang) * 0.045f * s * 1.6f + (k.phase == CROUCH ? sin(k.tail * 2f) * t * 0.01f * s : 0f);
             tailP.setColor(i > segs - 2 ? 0xFF7A3A0E : ((i / 2) % 2 == 1 ? 0xFFE07A22 : 0xFFF29A44));
             tailP.setStrokeWidth((0.075f - 0.025f * t) * s);
             c.drawLine(px, py, nx, ny, tailP);
@@ -270,7 +290,7 @@ public class ChaseScene extends MouseScene {
         c.drawLine(hx - 0.08f * s, -0.06f * s, hx, -0.03f * s, stripeP);
         c.drawLine(hx - 0.08f * s, 0.06f * s, hx, 0.03f * s, stripeP);
         c.drawOval(hx + 0.06f * s, -0.07f * s, hx + 0.19f * s, 0.07f * s, muzzle);
-        float pw = (k.phase == STALK || k.phase == CHASE) ? 0.022f : 0.009f; // đồng tử nở khi rình
+        float pw = (k.phase == CROUCH || k.phase == POUNCE) ? 0.022f : 0.009f; // đồng tử nở khi rình
         for (int side = -1; side <= 1; side += 2) {
             c.drawCircle(hx + 0.07f * s, side * 0.075f * s, 0.032f * s, iris);
             c.drawOval(hx + 0.07f * s - pw * s, side * 0.075f * s - 0.026f * s,

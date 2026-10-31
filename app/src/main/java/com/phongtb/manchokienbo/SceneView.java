@@ -11,6 +11,7 @@ import com.phongtb.manchokienbo.scenes.AntScene;
 import com.phongtb.manchokienbo.scenes.BubbleScene;
 import com.phongtb.manchokienbo.scenes.ButterflyScene;
 import com.phongtb.manchokienbo.scenes.ChaseScene;
+import com.phongtb.manchokienbo.scenes.CrackScene;
 import com.phongtb.manchokienbo.scenes.FogScene;
 import com.phongtb.manchokienbo.scenes.FireflyScene;
 import com.phongtb.manchokienbo.scenes.FishScene;
@@ -41,7 +42,7 @@ public class SceneView extends View {
         float dp = c.getResources().getDisplayMetrics().density;
         float mult = amount == 0 ? 0.5f : (amount == 2 ? 1.5f : 1f);
         if ("random".equals(key)) {
-            String[] keys = {"ants", "roach", "mouse", "fish", "snake", "chase", "butterfly", "firefly", "bubble", "fog"};
+            String[] keys = {"ants", "roach", "mouse", "fish", "snake", "chase", "butterfly", "firefly", "bubble", "fog", "crack"};
             key = keys[new Random().nextInt(keys.length)];
         }
         this.doubleTap = doubleTap;
@@ -65,6 +66,7 @@ public class SceneView extends View {
             case "hamster": return new MouseScene(dp, mult);
             case "chase": return new ChaseScene(dp, mult);
             case "fog": return new FogScene(dp, mult);
+            case "crack": return new CrackScene(dp, mult);
             case "fish": return new FishScene(dp, mult);
             case "butterfly": return new ButterflyScene(dp, mult);
             case "firefly": return new FireflyScene(dp, mult);

@@ -13,7 +13,7 @@ public final class Prefs {
     public static final int[] RUN_CHOICES = {15, 30, 45, 60, 90, 120, 180, 300, 600, 0};
 
     public static final String[] SCENE_KEYS = {"random", "ants", "roach", "mouse", "fish", "snake",
-            "chase", "butterfly", "firefly", "bubble", "fog"};
+            "chase", "butterfly", "firefly", "bubble", "fog", "crack"};
     private static final String[] SCENE_VI = {
             "🎲  Ngẫu nhiên mỗi lần",
             "🐜  Đàn kiến tha mồi",
@@ -25,7 +25,8 @@ public final class Prefs {
             "🦋  Bướm bay",
             "✨  Đom đóm đêm",
             "🫧  Bong bóng xà phòng",
-            "🌫️  Mây mù"};
+            "🌫️  Sương mù",
+            "💥  Vỡ màn hình"};
     private static final String[] SCENE_EN = {
             "🎲  Surprise me",
             "🐜  Marching ants",
@@ -37,7 +38,8 @@ public final class Prefs {
             "🦋  Butterflies",
             "✨  Fireflies at night",
             "🫧  Soap bubbles",
-            "🌫️  Drifting fog"};
+            "🌫️  Drifting fog",
+            "💥  Cracked screen"};
 
     public static String sceneName(Context c, int i) { return english(c) ? SCENE_EN[i] : SCENE_VI[i]; }
 
@@ -78,6 +80,13 @@ public final class Prefs {
         for (int i = 0; i < arr.length; i++) if (arr[i] == v) return i;
         return 0;
     }
+
+    public static boolean step1Done(Context c) { return sp(c).getBoolean("step1", false); }
+    public static void setStep1Done(Context c, boolean v) { sp(c).edit().putBoolean("step1", v).apply(); }
+    public static boolean notifAsked(Context c) { return sp(c).getBoolean("notifAsked", false); }
+    public static void setNotifAsked(Context c, boolean v) { sp(c).edit().putBoolean("notifAsked", v).apply(); }
+    public static boolean setupFinished(Context c) { return sp(c).getBoolean("setupDone", false); }
+    public static void setSetupFinished(Context c, boolean v) { sp(c).edit().putBoolean("setupDone", v).apply(); }
 
     /** Ngôn ngữ: mặc định tiếng Anh */
     public static boolean english(Context c) { return sp(c).getBoolean("english", true); }
