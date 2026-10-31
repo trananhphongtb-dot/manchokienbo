@@ -23,9 +23,9 @@ public class RoachScene extends Scene {
             new Mood(FLUTTER, 8, 120, 170, 0.5f, 0.9f)};
     // sáng, giữa, tối (cánh), mai sáng, mai tối / chân
     private static final int[][] PAL = {
-            {0xFFB0662F, 0xFF7A3B17, 0xFF3F1C0A, 0xFF94532A, 0xFF4A250F},
-            {0xFF8A4A22, 0xFF5C2A10, 0xFF2A1206, 0xFF6E3A1A, 0xFF33180A},
-            {0xFFC98A45, 0xFF9A5A22, 0xFF5A2E0E, 0xFFB57A40, 0xFF6A3A14}};
+            {0xFF8A4A22, 0xFF5A2A0F, 0xFF2A1206, 0xFF6A3415, 0xFF2E1408},
+            {0xFF6E3A1A, 0xFF44200C, 0xFF1C0C04, 0xFF55290F, 0xFF221006},
+            {0xFF7E4A24, 0xFF4F2A10, 0xFF241206, 0xFF62361A, 0xFF2A160A}};
 
     private static class Roach extends Walker {
         float gait, s, tw, open, flap;
@@ -113,6 +113,10 @@ public class RoachScene extends Scene {
             r.open = lerp(r.open, r.mood == FLUTTER ? 1f : 0f, Math.min(1f, dt * 10f));
             r.flap += dt * 55f;
         }
+    }
+
+    @Override public void touch(float x, float y) {
+        for (Roach r : list) scare(r, x, y, 160 * dp, 300 * dp);
     }
 
     @Override public void draw(Canvas c) {

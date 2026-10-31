@@ -35,6 +35,23 @@ public abstract class Scene {
     protected abstract void step(float dt);
     public abstract void draw(Canvas c);
 
+    /** Chạm 1 cái vào màn chờ: con vật gần đó giật mình chạy đi. */
+    public void touch(float x, float y) {}
+
+    /** Làm con vật đang ở gần (tx, ty) hoảng hốt chạy ra xa. Trả về true nếu bị dọa. */
+    protected boolean scare(Walker c, float tx, float ty, float radius, float speed) {
+        float d = (float) Math.hypot(c.x - tx, c.y - ty);
+        if (d > radius) return false;
+        c.mood = DASH;
+        c.timer = rand(0.6f, 1.3f);
+        c.target = speed;
+        c.ang = (float) Math.atan2(c.y - ty, c.x - tx) + rand(-0.4f, 0.4f);
+        c.turn = 0;
+        c.esc = false;
+        c.pivot = 0;
+        return true;
+    }
+
     // ------------------------------------------------ tiện ích
 
     protected float rand(float a, float b) { return a + rnd.nextFloat() * (b - a); }
@@ -182,7 +199,10 @@ public abstract class Scene {
 
     /** Điểm xuất phát ngoài mép màn, hướng vào trong. Trả về {x, y, ang} */
     protected float[] edgeStart(float extra) {
-        int e = rnd.nextInt(4);
+        return edgeStart(extra, rnd.nextInt(4));
+    }
+
+    protected float[] edgeStart(float extra, int e) {
         float x, y;
         switch (e) {
             case 0: x = rand(0, w); y = -extra; break;

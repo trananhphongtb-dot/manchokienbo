@@ -15,7 +15,7 @@ import java.util.ArrayList;
 public class FireflyScene extends Scene {
 
     private static class Fly extends Walker {
-        float fq, ph, gs;
+        float fq, ph, gs, boost;
         Bitmap glow;
     }
 
@@ -107,8 +107,19 @@ public class FireflyScene extends Scene {
                 f.esc = true;
                 f.escAng = (float) (Math.PI / 2) + rand(-1f, 1f);
             }
-            f.x += cos(f.ang) * f.v * dt;
-            f.y += sin(f.ang) * f.v * dt;
+            f.boost = Math.max(0, f.boost - dt * 0.8f);
+            float v = f.v * (1 + f.boost * 3);
+            f.x += cos(f.ang) * v * dt;
+            f.y += sin(f.ang) * v * dt;
+        }
+    }
+
+    @Override public void touch(float x, float y) {
+        for (Fly f : list) {
+            if (Math.hypot(f.x - x, f.y - y) > 160 * dp) continue;
+            f.boost = 1; // lóe sáng rồi bay tán loạn
+            f.ang = (float) Math.atan2(f.y - y, f.x - x) + rand(-0.5f, 0.5f);
+            f.esc = false;
         }
     }
 
@@ -138,7 +149,7 @@ public class FireflyScene extends Scene {
 
         for (Fly f : list) {
             float p = sin(time * f.fq * 3.1416f + f.ph);
-            float b = p > 0 ? p * p * p : 0f;
+            float b = Math.max(p > 0 ? p * p * p : 0f, f.boost);
             float a = 0.12f + 0.88f * b;
             glowP.setAlpha((int) (255 * a));
             float r = 22 * dp * f.gs * (0.6f + 0.6f * b);

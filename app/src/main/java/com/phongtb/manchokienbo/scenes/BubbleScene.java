@@ -11,11 +11,13 @@ import java.util.ArrayList;
 /**
  * Bong bóng xà phòng kiểu Windows: nhiều màu, nhiều cỡ, trôi lững lờ,
  * chạm mép thì nảy lại, va vào nhau cũng nảy ra. Viền cầu vồng xoay óng ánh.
+ * Chạm vào bong bóng thì nó vỡ, lát sau bóng khác bay vào.
  */
 public class BubbleScene extends Scene {
 
     private static class Bubble {
         float x, y, r, vx, vy, rot, spin, ph, hue;
+        float pop = -1, respawn; // pop >= 0: đang vỡ; respawn > 0: đã vỡ, chờ bay lại
         Paint bodyP;
     }
 
@@ -24,6 +26,7 @@ public class BubbleScene extends Scene {
     private final Paint gloss = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint glint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint glint2 = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint popP = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     public BubbleScene(float dp, float mult) {
         super(dp, mult);
@@ -34,10 +37,11 @@ public class BubbleScene extends Scene {
         gloss.setColor(0x8CFFFFFF);
         glint.setColor(0xE6FFFFFF);
         glint2.setColor(0x73FFFFFF);
+        popP.setStyle(Paint.Style.STROKE);
     }
 
     @Override protected void init() {
-        for (int i = 0; i < count(24); i++) {
+        for (int i = 0; i < count(12); i++) {
             Bubble b = new Bubble();
             b.r = rand(14, 64) * dp;
             float a = rand(0, 6.28f), v = rand(25, 75) * dp;
@@ -66,8 +70,53 @@ public class BubbleScene extends Scene {
         }
     }
 
+    private static boolean alive(Bubble b) { return b.pop < 0 && b.respawn <= 0; }
+
+    @Override public void touch(float x, float y) {
+        for (int i = list.size() - 1; i >= 0; i--) {
+            Bubble b = list.get(i);
+            if (alive(b) && Math.hypot(b.x - x, b.y - y) < b.r) {
+                b.pop = 0; // vỡ
+                break;
+            }
+        }
+        for (Bubble b : list) {
+            if (!alive(b)) continue;
+            float dx = b.x - x, dy = b.y - y, d = (float) Math.hypot(dx, dy);
+            if (d > 1 && d < b.r + 110 * dp) {
+                b.vx += dx / d * 120 * dp;
+                b.vy += dy / d * 120 * dp;
+            }
+        }
+    }
+
     @Override protected void step(float dt) {
         for (Bubble b : list) {
+            if (b.pop >= 0) {
+                b.pop += dt;
+                if (b.pop > 0.35f) {
+                    b.pop = -1;
+                    b.respawn = rand(1f, 2.5f);
+                }
+                continue;
+            }
+            if (b.respawn > 0) {
+                b.respawn -= dt;
+                if (b.respawn <= 0) { // bay vào từ dưới đáy
+                    b.x = rand(b.r, w - b.r);
+                    b.y = h + b.r;
+                    b.vx = rand(-40, 40) * dp;
+                    b.vy = -rand(30, 60) * dp;
+                }
+                continue;
+            }
+            // ma sát nhẹ để sau khi bị đẩy dần trở lại tốc độ lững lờ
+            float sp = (float) Math.hypot(b.vx, b.vy);
+            if (sp > 80 * dp) {
+                float k = Math.max(80 * dp / sp, 1 - dt * 1.5f);
+                b.vx *= k;
+                b.vy *= k;
+            }
             b.x += b.vx * dt;
             b.y += b.vy * dt;
             b.rot += b.spin * dt;
@@ -81,6 +130,7 @@ public class BubbleScene extends Scene {
         for (int i = 0; i < list.size(); i++) {
             for (int j = i + 1; j < list.size(); j++) {
                 Bubble a = list.get(i), b = list.get(j);
+                if (!alive(a) || !alive(b)) continue;
                 float dx = b.x - a.x, dy = b.y - a.y;
                 float d = (float) Math.hypot(dx, dy), md = a.r + b.r;
                 if (d < md && d > 0.01f) {
@@ -101,6 +151,18 @@ public class BubbleScene extends Scene {
 
     @Override public void draw(Canvas c) {
         for (Bubble b : list) {
+            if (b.respawn > 0) continue;
+            if (b.pop >= 0) { // vòng vỡ lan ra và giọt nước bắn tung
+                float t = b.pop / 0.35f;
+                popP.setColor(hsv(b.hue % 360, 0.5f, 1f, 0.8f * (1 - t)));
+                popP.setStrokeWidth(2 * dp);
+                c.drawCircle(b.x, b.y, b.r * (1 + t * 0.6f), popP);
+                for (int k = 0; k < 10; k++) {
+                    float a = k * 0.628f + b.ph, rr = b.r * (1 + t * 1.2f);
+                    c.drawCircle(b.x + cos(a) * rr, b.y + sin(a) * rr, 2.2f * dp * (1 - t), glint);
+                }
+                continue;
+            }
             float k = 1 + 0.025f * sin(time * 2.5f + b.ph);
             float r = b.r * k;
             int save = c.save();

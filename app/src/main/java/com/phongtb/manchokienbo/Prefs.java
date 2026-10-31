@@ -12,12 +12,13 @@ public final class Prefs {
     /** 0 = không tự tắt màn. */
     public static final int[] RUN_CHOICES = {15, 30, 45, 60, 90, 120, 180, 300, 600, 0};
 
-    public static final String[] SCENE_KEYS = {"random", "ants", "roach", "mouse", "fish", "snake", "butterfly", "firefly", "bubble"};
+    public static final String[] SCENE_KEYS = {"random", "ants", "roach", "mouse", "hamster", "fish", "snake", "butterfly", "firefly", "bubble"};
     public static final String[] SCENE_NAMES = {
             "🎲  Ngẫu nhiên mỗi lần",
             "🐜  Đàn kiến tha mồi",
             "🪳  Gián chạy",
-            "🐭  Chuột rúc rích",
+            "🐭  Chuột xám",
+            "🐹  Chuột Hamster",
             "🐟  Hồ cá Koi",
             "🐍  Rắn bò",
             "🦋  Bướm bay",
@@ -46,8 +47,13 @@ public final class Prefs {
     public static int amount(Context c) { return sp(c).getInt("amount", 1); }
     public static void setAmount(Context c, int v) { sp(c).edit().putInt("amount", v).apply(); }
 
-    public static boolean skipMedia(Context c) { return sp(c).getBoolean("skipMedia", true); }
-    public static void setSkipMedia(Context c, boolean v) { sp(c).edit().putBoolean("skipMedia", v).apply(); }
+    /** Không hiện khi đang xem video (nghe nhạc vẫn hiện) */
+    public static boolean skipVideo(Context c) { return sp(c).getBoolean("skipVideo", true); }
+    public static void setSkipVideo(Context c, boolean v) { sp(c).edit().putBoolean("skipVideo", v).apply(); }
+
+    /** true = chạm 1 lần trêu con vật, chạm 2 lần liền mới mở; false = chạm 1 lần là mở */
+    public static boolean doubleTap(Context c) { return sp(c).getBoolean("doubleTap", true); }
+    public static void setDoubleTap(Context c, boolean v) { sp(c).edit().putBoolean("doubleTap", v).apply(); }
 
     public static int indexOf(int[] arr, int v) {
         for (int i = 0; i < arr.length; i++) if (arr[i] == v) return i;

@@ -31,15 +31,20 @@ public class SceneView extends View {
     private final Paint blackPaint = new Paint();
     private final Paint hintPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
-    public SceneView(Context c, String key, int amount) {
+    private final boolean doubleTap;
+
+    public SceneView(Context c, String key, int amount, boolean doubleTap) {
         super(c);
         float dp = c.getResources().getDisplayMetrics().density;
         float mult = amount == 0 ? 0.5f : (amount == 2 ? 1.5f : 1f);
         if ("random".equals(key)) {
-            String[] keys = {"ants", "roach", "mouse", "fish", "snake", "butterfly", "firefly", "bubble"};
+            String[] keys = {"ants", "roach", "mouse", "hamster", "fish", "snake", "butterfly", "firefly", "bubble"};
             key = keys[new Random().nextInt(keys.length)];
         }
+        this.doubleTap = doubleTap;
         scene = create(key, dp, mult);
+        ringPaint.setStyle(Paint.Style.STROKE);
+        ringPaint.setStrokeWidth(2 * dp);
         blackPaint.setColor(Color.BLACK);
         hintPaint.setColor(Color.WHITE);
         hintPaint.setTextAlign(Paint.Align.CENTER);
@@ -51,7 +56,8 @@ public class SceneView extends View {
     public static Scene create(String key, float dp, float mult) {
         switch (key) {
             case "roach": return new RoachScene(dp, mult);
-            case "mouse": return new MouseScene(dp, mult);
+            case "mouse": return new MouseScene(dp, mult, false);
+            case "hamster": return new MouseScene(dp, mult, true);
             case "fish": return new FishScene(dp, mult);
             case "butterfly": return new ButterflyScene(dp, mult);
             case "firefly": return new FireflyScene(dp, mult);
@@ -69,6 +75,25 @@ public class SceneView extends View {
     public void stop() { running = false; }
 
     public void fadeToBlack() { toBlack = true; }
+
+    /** Đang tối/đen thì sáng lại, hoạt cảnh chạy tiếp. */
+    public void unBlack() {
+        toBlack = false;
+        black = 0f;
+        lastFrame = 0;
+        postInvalidateOnAnimation();
+    }
+
+    private final Paint ringPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private float ringX, ringY, ringAge = 9f;
+
+    /** Chạm 1 cái: vòng sáng nhỏ tại chỗ chạm, con vật gần đó giật mình. */
+    public void touch(float x, float y) {
+        ringX = x;
+        ringY = y;
+        ringAge = 0f;
+        scene.touch(x, y);
+    }
 
     @Override protected void onSizeChanged(int w, int h, int ow, int oh) {
         super.onSizeChanged(w, h, ow, oh);
@@ -91,11 +116,19 @@ public class SceneView extends View {
             scene.draw(canvas);
         }
 
+        if (ringAge < 0.5f) {
+            ringAge += dt;
+            float k = Math.min(1f, ringAge / 0.5f);
+            ringPaint.setColor(0xFFFFFFFF);
+            ringPaint.setAlpha((int) (200 * (1 - k)));
+            canvas.drawCircle(ringX, ringY, (10 + 40 * k) * scene.dp, ringPaint);
+        }
+
         // Dòng nhắc mờ trong 4 giây đầu
         if (showHint && age < 4f && !toBlack) {
             float a = age < 0.8f ? age / 0.8f : (age > 3f ? (4f - age) : 1f);
             hintPaint.setAlpha((int) (150 * Math.max(0f, a)));
-            canvas.drawText("Chạm vào màn hình để tiếp tục", getWidth() / 2f,
+            canvas.drawText(doubleTap ? "Chạm 2 lần liên tiếp để mở" : "Chạm vào màn hình để tiếp tục", getWidth() / 2f,
                     getHeight() - 60 * scene.dp, hintPaint);
         }
 

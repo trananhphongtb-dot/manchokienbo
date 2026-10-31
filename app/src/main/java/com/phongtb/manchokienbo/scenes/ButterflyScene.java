@@ -102,6 +102,17 @@ public class ButterflyScene extends Scene {
         }
     }
 
+    @Override public void touch(float x, float y) {
+        for (Fly f : list) {
+            if (Math.hypot(f.x - x, f.y - y) > 140 * dp) continue;
+            f.mode = 0; // giật mình bay vụt lên
+            f.timer = rand(1.5f, 3f);
+            f.ang = (float) Math.atan2(f.y - y, f.x - x) + rand(-0.5f, 0.5f);
+            f.turn = 0;
+            f.esc = false;
+        }
+    }
+
     @Override public void draw(Canvas c) {
         for (Fly f : list) drawFly(c, f);
     }

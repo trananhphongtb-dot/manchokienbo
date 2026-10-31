@@ -6,7 +6,7 @@ import android.graphics.Paint;
 import java.util.ArrayList;
 
 /**
- * Đàn kiến khoảng 100 con: 5 hàng nối đuôi + 10 con trinh sát đi lẻ.
+ * Đàn kiến khoảng 100 con: 8 hàng ngắn đi thưa + 10 con trinh sát đi lẻ.
  * Con đầu hàng lúc đi, lúc chậm, lúc dừng ngó nghiêng; con theo sau tự giữ khoảng cách,
  * có con dừng chạm râu rồi chạy bắt kịp. To nhỏ và màu (đen, nâu, đỏ) khác nhau.
  */
@@ -60,10 +60,11 @@ public class AntScene extends Scene {
 
     @Override protected void init() {
         size = 13 * dp;
-        spacing = size * 1.3f;
-        minGap = size * 0.9f;
-        int nc = count(5), per = count(17);
-        for (int i = 0; i < nc; i++) cols.add(makeColumn(per, i * 2.5f));
+        spacing = size * 1.75f;
+        minGap = size * 1.15f;
+        // hàng ngắn, thưa, xuất phát từ các mép khác nhau
+        int nc = count(8), per = count(10);
+        for (int i = 0; i < nc; i++) cols.add(makeColumn(per, i * 3f, i % 4));
         for (int i = 0; i < count(10); i++) {
             Scout s = new Scout();
             float[] st = edgeStart(rand(20, 260) * dp);
@@ -76,9 +77,9 @@ public class AntScene extends Scene {
         }
     }
 
-    private Column makeColumn(int n, float delay) {
+    private Column makeColumn(int n, float delay, int edge) {
         Column t = new Column();
-        float[] st = edgeStart(20 * dp + delay * 40 * dp);
+        float[] st = edgeStart(20 * dp + delay * 40 * dp, edge);
         t.x = st[0]; t.y = st[1]; t.ang = st[2];
         t.n = n;
         t.base = rand(34, 46) * dp;
@@ -120,6 +121,15 @@ public class AntScene extends Scene {
             t.trail.trim(t.fs[t.n] - 10 * dp);
         }
         for (Scout s : scouts) s.dist += moveWalker(s, dt, SCOUT, 300 * dp, 4f, 25 * dp, 4f);
+    }
+
+    @Override public void touch(float x, float y) {
+        for (Column t : cols) {
+            if (scare(t, x, y, 120 * dp, 110 * dp)) {
+                for (int i = 1; i <= t.n; i++) t.fp[i] = 0; // cả hàng chạy theo
+            }
+        }
+        for (Scout s : scouts) scare(s, x, y, 130 * dp, 140 * dp);
     }
 
     @Override public void draw(Canvas c) {

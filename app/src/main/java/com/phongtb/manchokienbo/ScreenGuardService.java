@@ -12,7 +12,9 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.ServiceInfo;
 import android.graphics.PixelFormat;
+import android.media.AudioAttributes;
 import android.media.AudioManager;
+import android.media.AudioPlaybackConfiguration;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
@@ -174,7 +176,8 @@ public class ScreenGuardService extends Service {
     private void addWatcher() {
         watcher = new View(this);
         watcher.setOnTouchListener((v, e) -> {
-            if (e.getActionMasked() == MotionEvent.ACTION_OUTSIDE) onUserActivity();
+            // đang có màn chờ thì để màn chờ tự xử lý cú chạm
+            if (e.getActionMasked() == MotionEvent.ACTION_OUTSIDE && sceneView == null) onUserActivity();
             return false;
         });
         watcherLp = new WindowManager.LayoutParams(1, 1,
@@ -232,8 +235,8 @@ public class ScreenGuardService extends Service {
         setKeepOn(!blackMode);
 
         if (sceneView == null) {
-            if (Prefs.skipMedia(this) && am.isMusicActive()) {
-                lastActivity = now; // đang phát nhạc/video: coi như đang dùng
+            if (Prefs.skipVideo(this) && videoPlaying()) {
+                lastActivity = now; // đang xem video: coi như đang dùng
                 return;
             }
             if (Prefs.enabled(this) && now - lastActivity >= Prefs.idleSec(this) * 1000L) {
@@ -249,11 +252,13 @@ public class ScreenGuardService extends Service {
 
     private void showScene() {
         if (sceneView != null || !Settings.canDrawOverlays(this)) return;
-        sceneView = new SceneView(this, Prefs.scene(this), Prefs.amount(this));
+        final boolean dbl = Prefs.doubleTap(this);
+        sceneView = new SceneView(this, Prefs.scene(this), Prefs.amount(this), dbl);
+        lastTapTime = 0;
         sceneView.setOnTouchListener((v, e) -> {
             if (e.getActionMasked() == MotionEvent.ACTION_DOWN) {
-                // Chạm là mở luôn, cú chạm này không lọt xuống icon
-                v.post(this::onUserActivity);
+                // cú chạm này không lọt xuống icon bên dưới
+                onSceneTap(e.getX(), e.getY(), dbl);
             }
             return true;
         });
@@ -285,6 +290,60 @@ public class ScreenGuardService extends Service {
         } catch (Exception e) {
             sceneView = null;
         }
+    }
+
+    private long lastTapTime;
+    private float lastTapX, lastTapY;
+
+    private void onSceneTap(float x, float y, boolean dbl) {
+        if (!dbl) {
+            sceneView.post(this::onUserActivity); // chạm 1 lần là mở
+            return;
+        }
+        long now = SystemClock.uptimeMillis();
+        float dp = getResources().getDisplayMetrics().density;
+        if (now - lastTapTime < 400 && Math.hypot(x - lastTapX, y - lastTapY) < 90 * dp) {
+            sceneView.post(this::onUserActivity); // chạm 2 lần liền: mở
+            return;
+        }
+        lastTapTime = now;
+        lastTapX = x;
+        lastTapY = y;
+        sceneStart = now; // đang chơi với con vật thì chưa tắt màn
+        if (blackMode) wakeScene();
+        else if (sceneView != null) sceneView.touch(x, y);
+    }
+
+    /** Màn đang tối mà chạm 1 cái: sáng lại, hoạt cảnh chạy tiếp. */
+    private void wakeScene() {
+        if (sceneView == null) return;
+        blackMode = false;
+        sceneView.unBlack();
+        sceneLp.flags |= WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON;
+        sceneLp.screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE;
+        try { wm.updateViewLayout(sceneView, sceneLp); } catch (Exception ignored) {}
+        setKeepOn(true);
+    }
+
+    /**
+     * Có đang xem video không: có âm thanh đang phát mà không phải loại nhạc / lời nói.
+     * App nghe nhạc thường khai báo là nhạc nên màn chờ vẫn hiện.
+     */
+    private boolean videoPlaying() {
+        if (!am.isMusicActive()) return false;
+        try {
+            for (AudioPlaybackConfiguration cfg : am.getActivePlaybackConfigurations()) {
+                AudioAttributes a = cfg.getAudioAttributes();
+                int usage = a.getUsage();
+                if (usage != AudioAttributes.USAGE_MEDIA && usage != AudioAttributes.USAGE_GAME
+                        && usage != AudioAttributes.USAGE_UNKNOWN) continue;
+                int ct = a.getContentType();
+                if (ct == AudioAttributes.CONTENT_TYPE_MUSIC || ct == AudioAttributes.CONTENT_TYPE_SPEECH) continue;
+                return true; // phim, hoặc không rõ loại (thường là video)
+            }
+        } catch (Exception ignored) {
+        }
+        return false;
     }
 
     private void hideScene() {

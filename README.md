@@ -1,6 +1,6 @@
 # Màn Chờ Kiến Bò
 
-App Android màn chờ kiểu Windows: để yên máy một lúc thì kiến, gián, chuột, cá Koi, rắn, bướm, đom đóm hoặc bong bóng bò ra phủ lên màn hình. Chạm một cái là mở lại ngay. Hoạt cảnh chạy đủ thời gian thì màn tối dần rồi tắt như bình thường.
+App Android màn chờ kiểu Windows: để yên máy một lúc thì kiến, gián, chuột, cá Koi, rắn, bướm, đom đóm hoặc bong bóng bò ra phủ lên màn hình. Có thể chọn chạm 1 lần là mở, hoặc chạm 1 lần để trêu con vật và chạm 2 lần liền mới mở. Hoạt cảnh chạy đủ thời gian thì màn tối dần rồi tắt như bình thường.
 
 ## Dựng APK bằng GitHub
 

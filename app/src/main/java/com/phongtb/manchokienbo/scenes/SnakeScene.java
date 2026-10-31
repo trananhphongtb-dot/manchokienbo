@@ -133,6 +133,24 @@ public class SnakeScene extends Scene {
         }
     }
 
+    @Override public void touch(float x, float y) {
+        for (Snake s : list) {
+            if (Math.hypot(s.x - x, s.y - y) > 170 * dp) continue;
+            if (s.type == 4) { // hổ mang: dựng mang thè lưỡi đe dọa
+                s.mood = FREEZE;
+                s.timer = rand(1.5f, 2.5f);
+                s.target = 0;
+                s.tongueT = 0;
+            } else {
+                s.mood = DASH;
+                s.timer = rand(1f, 1.8f);
+                s.target = 160 * dp;
+                s.base = (float) Math.atan2(s.y - y, s.x - x);
+                s.esc = false;
+            }
+        }
+    }
+
     @Override public void draw(Canvas c) {
         for (Snake s : list) {
             if (offscreen(s.x, s.y, s.L * 1.2f)) continue;

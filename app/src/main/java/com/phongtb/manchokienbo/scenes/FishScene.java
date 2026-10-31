@@ -291,6 +291,14 @@ public class FishScene extends Scene {
         }
     }
 
+    @Override public void touch(float x, float y) {
+        // gõ mặt nước: gợn sóng, cá giật mình quẫy đi
+        ripples.add(new float[]{x, y, 0, 60 * dp});
+        ripples.add(new float[]{x, y, -0.3f, 90 * dp});
+        for (Fish f : fish) scare(f, x, y, 180 * dp, 220 * dp);
+        if (Math.hypot(leader.x - x, leader.y - y) < 200 * dp) scare(leader, x, y, 200 * dp, 160 * dp);
+    }
+
     @Override public void draw(Canvas c) {
         c.drawRect(0, 0, w, h, water);
 
@@ -311,6 +319,7 @@ public class FishScene extends Scene {
 
         ripple.setStrokeWidth(1.4f * dp);
         for (float[] r : ripples) {
+            if (r[2] < 0) continue;
             float k = r[2] / 2.5f;
             ripple.setColor(withAlpha(0xFFFFFFFF, 0.45f * (1 - k)));
             float rr = r[3] * k + 2;

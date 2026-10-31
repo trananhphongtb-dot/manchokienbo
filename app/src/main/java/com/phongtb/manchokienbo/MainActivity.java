@@ -167,13 +167,30 @@ public class MainActivity extends Activity {
         });
 
         CheckBox media = new CheckBox(this);
-        media.setText("Không hiện khi đang phát nhạc hoặc video");
+        media.setText("Không hiện khi đang xem video (nghe nhạc vẫn hiện)");
         media.setTextColor(TEXT);
         media.setButtonTintList(ColorStateList.valueOf(ACCENT));
-        media.setChecked(Prefs.skipMedia(this));
-        media.setOnCheckedChangeListener((v, c) -> Prefs.setSkipMedia(this, c));
+        media.setChecked(Prefs.skipVideo(this));
+        media.setOnCheckedChangeListener((v, c) -> Prefs.setSkipVideo(this, c));
         media.setPadding(0, px(8), 0, 0);
         tm.addView(media);
+
+        // ---- kiểu chạm
+        LinearLayout tp = card(col);
+        tp.addView(header("Khi chạm vào màn chờ"));
+        RadioGroup tapGroup = new RadioGroup(this);
+        RadioButton tap1 = radio("Chạm 1 lần là mở máy luôn");
+        tap1.setId(3000);
+        RadioButton tap2 = radio("Chạm 1 lần: trêu con vật (chúng giật mình chạy, bóng vỡ...)\nChạm 2 lần liền: mở máy");
+        tap2.setId(3001);
+        tapGroup.addView(tap1);
+        tapGroup.addView(tap2);
+        if (Prefs.doubleTap(this)) tap2.setChecked(true); else tap1.setChecked(true);
+        tapGroup.setOnCheckedChangeListener((g, id) -> Prefs.setDoubleTap(this, id == 3001));
+        tp.addView(tapGroup);
+        TextView tpSub = text("Ở khung xem trước phía trên, anh/chị cũng chạm thử được.", 13, SUB);
+        tpSub.setPadding(0, px(4), 0, 0);
+        tp.addView(tpSub);
 
         // ---- nút
         Button try1 = button("Xem thử toàn màn hình", true);
@@ -309,8 +326,13 @@ public class MainActivity extends Activity {
             preview.stop();
             previewBox.removeView(preview);
         }
-        preview = new SceneView(this, Prefs.scene(this), Prefs.amount(this));
+        preview = new SceneView(this, Prefs.scene(this), Prefs.amount(this), false);
         preview.setShowHint(false);
+        final SceneView pv = preview;
+        preview.setOnTouchListener((v, e) -> {
+            if (e.getActionMasked() == android.view.MotionEvent.ACTION_DOWN) pv.touch(e.getX(), e.getY());
+            return true;
+        });
         previewBox.addView(preview, new FrameLayout.LayoutParams(-1, -1));
     }
 
