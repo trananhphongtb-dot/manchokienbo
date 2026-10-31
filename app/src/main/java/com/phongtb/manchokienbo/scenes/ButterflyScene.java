@@ -67,6 +67,11 @@ public class ButterflyScene extends Scene {
             f.bob = rand(0, 6.28f);
             f.flapSp = rand(12, 18);
             f.mode = i % 3 == 0 ? 1 : 0;
+            if (companion) { // bay vào từ mép, không đậu
+                float[] st = edgeStart(rand(10, 80) * dp);
+                f.x = st[0]; f.y = st[1]; f.ang = st[2];
+                f.mode = 0;
+            }
             f.timer = rand(1, 4);
             f.wing = new Paint(Paint.ANTI_ALIAS_FLAG);
             f.wing.setShader(new RadialGradient(0, 0, 105, PAL[i % PAL.length],
@@ -81,7 +86,7 @@ public class ButterflyScene extends Scene {
             if (f.timer <= 0) {
                 float r = rnd.nextFloat();
                 if (f.mode == 1) { f.mode = 0; f.timer = rand(2, 5); }
-                else if (r < 0.28f) { f.mode = 1; f.timer = rand(2, 5); }
+                else if (!companion && r < 0.28f) { f.mode = 1; f.timer = rand(2, 5); }
                 else if (r < 0.58f) { f.mode = 2; f.timer = rand(0.6f, 1.4f); }
                 else { f.mode = 0; f.timer = rand(1.5f, 4); }
             }

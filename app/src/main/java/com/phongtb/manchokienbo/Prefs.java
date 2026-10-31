@@ -49,7 +49,8 @@ public final class Prefs {
         return c.getApplicationContext().getSharedPreferences(FILE, Context.MODE_PRIVATE);
     }
 
-    public static boolean enabled(Context c) { return sp(c).getBoolean("enabled", false); }
+    /** Mặc định bật sẵn: chỉ cần cấp quyền hiển thị đè là chạy */
+    public static boolean enabled(Context c) { return sp(c).getBoolean("enabled", true); }
     public static void setEnabled(Context c, boolean v) { sp(c).edit().putBoolean("enabled", v).apply(); }
 
     public static int idleSec(Context c) { return sp(c).getInt("idle", 30); }
@@ -87,6 +88,25 @@ public final class Prefs {
     public static void setNotifAsked(Context c, boolean v) { sp(c).edit().putBoolean("notifAsked", v).apply(); }
     public static boolean setupFinished(Context c) { return sp(c).getBoolean("setupDone", false); }
     public static void setSetupFinished(Context c, boolean v) { sp(c).edit().putBoolean("setupDone", v).apply(); }
+
+    // ---- chế độ đồng hành: thỉnh thoảng vài con lướt qua khi đang dùng app
+    public static final int[] COMP_FREQ = {1, 2, 3, 5, 10, 15, 30};
+    public static final String[] COMP_KEYS = {"ants", "roach", "mouse", "butterfly", "fish", "crack"};
+
+    public static boolean companion(Context c) { return sp(c).getBoolean("companion", false); }
+    public static void setCompanion(Context c, boolean v) { sp(c).edit().putBoolean("companion", v).apply(); }
+    public static int compFreq(Context c) { return sp(c).getInt("compFreq", 3); }
+    public static void setCompFreq(Context c, int v) { sp(c).edit().putInt("compFreq", v).apply(); }
+    public static String compTypes(Context c) { return sp(c).getString("compTypes", "ants,roach,mouse"); }
+    public static boolean compHas(Context c, String k) { return ("," + compTypes(c) + ",").contains("," + k + ","); }
+    public static void setCompType(Context c, String k, boolean on) {
+        StringBuilder sb = new StringBuilder();
+        for (String key : COMP_KEYS) {
+            boolean has = key.equals(k) ? on : compHas(c, key);
+            if (has) sb.append(sb.length() > 0 ? "," : "").append(key);
+        }
+        sp(c).edit().putString("compTypes", sb.toString()).apply();
+    }
 
     /** Ngôn ngữ: mặc định tiếng Anh */
     public static boolean english(Context c) { return sp(c).getBoolean("english", true); }

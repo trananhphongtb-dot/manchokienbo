@@ -300,6 +300,11 @@ public class FishScene extends Scene {
     }
 
     @Override public void draw(Canvas c) {
+        if (companion) { // chỉ vài con cá nhỏ bơi lướt qua, không có nước, lá súng
+            for (Fish f : small) if (spine(f)) drawFish(c, f);
+            for (Fish f : fish) if (spine(f)) drawFish(c, f);
+            return;
+        }
         c.drawRect(0, 0, w, h, water);
 
         // vệt sáng lăn tăn dưới nước

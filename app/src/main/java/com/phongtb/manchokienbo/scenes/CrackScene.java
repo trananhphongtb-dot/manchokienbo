@@ -1,184 +1,136 @@
 package com.phongtb.manchokienbo.scenes;
 
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Paint;
-import android.graphics.Path;
-import android.graphics.RadialGradient;
-import android.graphics.Shader;
 
 import java.util.ArrayList;
 
 /**
- * Vỡ màn hình: cứ vài giây lại có một chỗ nứt toác ra, vết nứt lan dần thành mạng nhện.
- * Chạm vào chỗ nào thì nứt thêm chỗ đó. (Chỉ là hình vẽ, máy không sao cả.)
+ * Vỡ màn hình kiểu rễ cây: từ một điểm mọc ra vài rễ nứt, bò dần ra xa,
+ * đi tới đâu tẻ nhánh tới đó, nhánh sau mảnh hơn nhánh trước, đầu rễ thon nhọn.
+ * Cứ vài giây lại nứt thêm một chỗ; chạm vào đâu thì nứt thêm chỗ đó.
+ * Phần đã nứt vẽ sẵn vào một ảnh đệm nên càng nhiều vết nứt máy vẫn nhẹ.
  */
 public class CrackScene extends Scene {
 
-    private static class Ray {
-        float[] pts; // x0,y0,x1,y1...
-        float delay = -1;
+    private static class Root {
+        float x, y, lx, ly, ang, w, len, done, speed, nextBranch, drift;
+        int gen, idx, expected;
     }
 
-    private static class Hit {
-        float x, y, age, grow;
-        final ArrayList<Ray> rays = new ArrayList<>();
-        final ArrayList<float[]> rings = new ArrayList<>();
-        float[] chips;
-        Paint glow;
-    }
-
-    private final ArrayList<Hit> hits = new ArrayList<>();
+    private final ArrayList<Root> roots = new ArrayList<>();
+    private final ArrayList<Root> born = new ArrayList<>();
     private final Paint dark = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint light = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint chip = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Path path = new Path();
-    private float next = 1f;
+    private Bitmap cache;
+    private Canvas cacheCanvas;
+    private float next = 0.5f;
+    private int hits = 0;
 
     public CrackScene(float dp, float mult) {
         super(dp, mult);
-        for (Paint p : new Paint[]{dark, light, chip}) {
+        for (Paint p : new Paint[]{dark, light}) {
             p.setStyle(Paint.Style.STROKE);
             p.setStrokeCap(Paint.Cap.ROUND);
-            p.setStrokeJoin(Paint.Join.ROUND);
         }
-        dark.setColor(0x66000000);
-        light.setColor(0xCCFFFFFF);
-        chip.setColor(0xB3FFFFFF);
+        dark.setColor(0x73000000);
+        light.setColor(0xD9FFFFFF);
     }
 
     @Override protected void init() {
-        dark.setStrokeWidth(2.4f * dp);
-        light.setStrokeWidth(1f * dp);
-        chip.setStrokeWidth(0.8f * dp);
+        makeCache();
+        if (companion) hit(rand(0.25f, 0.75f) * w, rand(0.25f, 0.75f) * h, 0.6f);
     }
 
-    private Hit makeHit(float x, float y, boolean big) {
-        Hit h = new Hit();
-        h.x = x;
-        h.y = y;
-        h.grow = big ? 0.45f : 0.3f;
-        int n = (int) rand(7, 12);
-        float maxL = (big ? rand(220, 380) : rand(110, 220)) * dp;
+    @Override protected void onResize() {
+        makeCache();
+        roots.clear();
+    }
+
+    private void makeCache() {
+        try {
+            cache = Bitmap.createBitmap(Math.max(1, w), Math.max(1, h), Bitmap.Config.ARGB_8888);
+            cacheCanvas = new Canvas(cache);
+        } catch (Throwable e) { // thiếu bộ nhớ: vẽ trực tiếp, không đệm
+            cache = null;
+            cacheCanvas = null;
+        }
+    }
+
+    private Root root(float x, float y, float ang, float width, float len, int gen) {
+        Root r = new Root();
+        r.x = r.lx = x;
+        r.y = r.ly = y;
+        r.ang = ang;
+        r.w = width;
+        r.len = len;
+        r.gen = gen;
+        r.speed = rand(18, 32) * dp * (1 - gen * 0.15f);
+        r.nextBranch = rand(0.15f, 0.35f) * len;
+        r.drift = rand(-0.6f, 0.6f);
+        r.expected = Math.max(2, Math.round(len / (5 * dp)));
+        return r;
+    }
+
+    private void hit(float x, float y, float size) {
+        int n = (int) rand(3, 6);
         float a0 = rand(0, 6.28f);
-        ArrayList<Ray> main = new ArrayList<>();
         for (int i = 0; i < n; i++) {
-            float a = a0 + i * 6.283f / n + rand(-0.25f, 0.25f);
-            float L = maxL * rand(0.45f, 1f), px = x, py = y, len = 0;
-            ArrayList<Float> pts = new ArrayList<>();
-            pts.add(px); pts.add(py);
-            while (len < L) {
-                float st = rand(8, 18) * dp;
-                a += rand(-0.35f, 0.35f);
-                px += cos(a) * st;
-                py += sin(a) * st;
-                len += st;
-                pts.add(px); pts.add(py);
-            }
-            Ray r = new Ray();
-            r.pts = toArray(pts);
-            h.rays.add(r);
-            main.add(r);
-            if (rnd.nextFloat() < 0.55f) { // nhánh phụ
-                int cnt = r.pts.length / 2;
-                int k = (int) rand(2, Math.max(3, cnt - 1));
-                k = Math.min(k, cnt - 1);
-                float ba = a + (rnd.nextBoolean() ? 1 : -1) * rand(0.5f, 1.1f);
-                float bx = r.pts[k * 2], by = r.pts[k * 2 + 1];
-                ArrayList<Float> bp = new ArrayList<>();
-                bp.add(bx); bp.add(by);
-                int steps = (int) rand(3, 7);
-                for (int j = 0; j < steps; j++) {
-                    ba += rand(-0.3f, 0.3f);
-                    bx += cos(ba) * 11 * dp;
-                    by += sin(ba) * 11 * dp;
-                    bp.add(bx); bp.add(by);
-                }
-                Ray br = new Ray();
-                br.pts = toArray(bp);
-                br.delay = k / (float) cnt;
-                h.rays.add(br);
-            }
+            roots.add(root(x, y, a0 + i * 6.283f / n + rand(-0.4f, 0.4f),
+                    rand(2.4f, 3.4f) * dp * size, rand(120, 260) * dp * size, 0));
         }
-        // vòng nứt quanh tâm
-        for (float rr : new float[]{0.18f, 0.38f}) {
-            float[] ring = new float[n * 2];
-            for (int i = 0; i < n; i++) {
-                float[] p = main.get(i).pts;
-                int cnt = p.length / 2;
-                int idx = Math.min(cnt - 1, Math.max(1, Math.round(cnt * rr)));
-                ring[i * 2] = p[idx * 2];
-                ring[i * 2 + 1] = p[idx * 2 + 1];
-            }
-            h.rings.add(ring);
-        }
-        h.chips = new float[26 * 4];
-        for (int i = 0; i < 26; i++) {
-            float a = rand(0, 6.28f), d = rand(2, 22) * dp;
-            float cx = x + cos(a) * d, cy = y + sin(a) * d;
-            h.chips[i * 4] = cx;
-            h.chips[i * 4 + 1] = cy;
-            h.chips[i * 4 + 2] = cx + cos(a + 1) * 5 * dp;
-            h.chips[i * 4 + 3] = cy + sin(a + 1) * 5 * dp;
-        }
-        h.glow = new Paint(Paint.ANTI_ALIAS_FLAG);
-        h.glow.setShader(new RadialGradient(x, y, 26 * dp, new int[]{0x66FFFFFF, 0x22FFFFFF, 0x00FFFFFF},
-                null, Shader.TileMode.CLAMP));
-        return h;
-    }
-
-    private static float[] toArray(ArrayList<Float> l) {
-        float[] a = new float[l.size()];
-        for (int i = 0; i < a.length; i++) a[i] = l.get(i);
-        return a;
+        hits++;
     }
 
     @Override public void touch(float x, float y) {
-        hits.add(makeHit(x, y, false));
-        if (hits.size() > 40) hits.remove(0);
+        hit(x, y, 0.8f);
     }
 
     @Override protected void step(float dt) {
-        for (Hit h : hits) h.age += dt;
         next -= dt;
-        if (next <= 0 && hits.size() < count(10)) {
-            next = rand(3, 7);
-            hits.add(makeHit(rand(0.1f, 0.9f) * w, rand(0.1f, 0.9f) * h, true));
+        if (!companion && next <= 0 && hits < count(8)) {
+            next = rand(6, 10);
+            hit(rand(0.15f, 0.85f) * w, rand(0.15f, 0.85f) * h, 1f);
         }
+        born.clear();
+        for (int k = roots.size() - 1; k >= 0; k--) {
+            Root b = roots.get(k);
+            float st = b.speed * dt;
+            b.done += st;
+            b.ang += (rand(-1f, 1f) * 2.2f + b.drift * 0.6f) * dt;
+            b.x += cos(b.ang) * st;
+            b.y += sin(b.ang) * st;
+            if (Math.hypot(b.x - b.lx, b.y - b.ly) > 5 * dp) {
+                b.idx++;
+                segment(cacheCanvas, b, b.lx, b.ly, b.x, b.y);
+                b.lx = b.x;
+                b.ly = b.y;
+            }
+            if (b.gen < 4 && b.done >= b.nextBranch) { // tẻ nhánh
+                b.nextBranch += rand(0.18f, 0.4f) * b.len;
+                born.add(root(b.x, b.y, b.ang + (rnd.nextBoolean() ? 1 : -1) * rand(0.45f, 1f),
+                        b.w * 0.62f, (b.len - b.done) * rand(0.5f, 0.9f), b.gen + 1));
+            }
+            if (b.done >= b.len && cacheCanvas != null) roots.remove(k); // xong: đã nằm trong ảnh đệm
+        }
+        roots.addAll(born);
     }
 
-    private void polyline(Canvas c, float[] p, float frac, Paint paint) {
-        int cnt = p.length / 2;
-        int n = Math.max(1, (int) ((cnt - 1) * frac));
-        path.reset();
-        path.moveTo(p[0], p[1]);
-        for (int i = 1; i <= n && i < cnt; i++) path.lineTo(p[i * 2], p[i * 2 + 1]);
-        c.drawPath(path, paint);
+    /** Một đoạn nứt: bóng tối lệch nhẹ + đường sáng mảnh, càng về đầu rễ càng thon */
+    private void segment(Canvas c, Root b, float x0, float y0, float x1, float y1) {
+        if (c == null) return;
+        float t = Math.min(1f, b.idx / (float) b.expected);
+        float wd = Math.max(0.35f * dp, b.w * (1 - t * 0.85f));
+        float o = 0.7f * dp;
+        dark.setStrokeWidth(wd);
+        c.drawLine(x0 + o, y0 + o, x1 + o, y1 + o, dark);
+        light.setStrokeWidth(wd * 0.45f);
+        c.drawLine(x0, y0, x1, y1, light);
     }
 
     @Override public void draw(Canvas c) {
-        for (Hit h : hits) {
-            float g = Math.min(1f, h.age / h.grow);
-            c.drawCircle(h.x, h.y, 26 * dp * g, h.glow);
-            for (int pass = 0; pass < 2; pass++) {
-                Paint p = pass == 0 ? dark : light;
-                int sv = c.save();
-                if (pass == 0) c.translate(0.8f * dp, 0.8f * dp); // bóng tối lệch nhẹ cho có chiều sâu
-                for (Ray r : h.rays) {
-                    float f = r.delay < 0 ? g : clamp((g - r.delay) / (1 - r.delay), 0f, 1f);
-                    if (f > 0) polyline(c, r.pts, f, p);
-                }
-                if (g >= 1) {
-                    for (float[] ring : h.rings) {
-                        path.reset();
-                        path.moveTo(ring[0], ring[1]);
-                        for (int i = 2; i < ring.length; i += 2) path.lineTo(ring[i], ring[i + 1]);
-                        path.close();
-                        c.drawPath(path, p);
-                    }
-                }
-                c.restoreToCount(sv);
-            }
-            if (g > 0.3f) c.drawLines(h.chips, chip);
-        }
+        if (cache != null) c.drawBitmap(cache, 0, 0, null);
+        for (Root b : roots) segment(c, b, b.lx, b.ly, b.x, b.y); // đầu rễ đang bò
     }
 }

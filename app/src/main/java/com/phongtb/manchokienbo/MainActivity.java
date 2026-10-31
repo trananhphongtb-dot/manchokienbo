@@ -225,6 +225,57 @@ public class MainActivity extends Activity {
         tpSub.setPadding(0, px(4), 0, 0);
         tp.addView(tpSub);
 
+        // ---- chế độ đồng hành khi đang dùng app
+        LinearLayout cp = card(col);
+        Switch comp = new Switch(this);
+        comp.setText(L("While using apps", "Khi đang dùng ứng dụng"));
+        comp.setTextSize(16);
+        comp.setTextColor(TEXT);
+        comp.setTypeface(Typeface.DEFAULT_BOLD);
+        comp.setThumbTintList(ColorStateList.valueOf(ACCENT));
+        comp.setChecked(Prefs.companion(this));
+        cp.addView(comp);
+        TextView cpSub = text(L("Now and then a few tiny, see-through critters run across the screen while you read or scroll, then leave. Taps go straight through them.",
+                "Thỉnh thoảng vài con nhỏ, trong suốt lướt ngang màn hình khi anh/chị đọc báo, lướt Facebook rồi biến mất. Vẫn bấm, cuộn xuyên qua bình thường."), 13, SUB);
+        cpSub.setPadding(0, px(4), 0, 0);
+        cp.addView(cpSub);
+        final LinearLayout cpBody = new LinearLayout(this);
+        cpBody.setOrientation(LinearLayout.VERTICAL);
+        final String freqTxt = L("About every:  ", "Khoảng mỗi:  ");
+        final TextView freqLabel = header(freqTxt + Prefs.compFreq(this) + L(" min", " phút"));
+        cpBody.addView(freqLabel);
+        SeekBar freqBar = seek(Prefs.COMP_FREQ.length - 1, Prefs.indexOf(Prefs.COMP_FREQ, Prefs.compFreq(this)));
+        freqBar.setOnSeekBarChangeListener(new SimpleSeek() {
+            @Override public void onProgressChanged(SeekBar sb, int p, boolean u) {
+                Prefs.setCompFreq(MainActivity.this, Prefs.COMP_FREQ[p]);
+                freqLabel.setText(freqTxt + Prefs.COMP_FREQ[p] + L(" min", " phút"));
+            }
+        });
+        cpBody.addView(freqBar);
+        cpBody.addView(header(L("Who shows up", "Con nào được ra")));
+        String[] compNames = {L("🐜 Ants", "🐜 Kiến"), L("🪳 Cockroaches", "🪳 Gián"), L("🐭 Mice", "🐭 Chuột"),
+                L("🦋 Butterflies", "🦋 Bướm"), L("🐟 Little fish", "🐟 Cá nhỏ"), L("💥 Crack", "💥 Vết nứt")};
+        for (int i = 0; i < Prefs.COMP_KEYS.length; i++) {
+            final String key = Prefs.COMP_KEYS[i];
+            CheckBox cb = new CheckBox(this);
+            cb.setText(compNames[i]);
+            cb.setTextColor(TEXT);
+            cb.setButtonTintList(ColorStateList.valueOf(ACCENT));
+            cb.setChecked(Prefs.compHas(this, key));
+            cb.setOnCheckedChangeListener((v, c) -> Prefs.setCompType(this, key, c));
+            cpBody.addView(cb);
+        }
+        cpBody.setVisibility(Prefs.companion(this) ? View.VISIBLE : View.GONE);
+        cp.addView(cpBody);
+        comp.setOnCheckedChangeListener((v, on) -> {
+            Prefs.setCompanion(this, on);
+            cpBody.setVisibility(on ? View.VISIBLE : View.GONE);
+            if (on) {
+                if (!Settings.canDrawOverlays(this)) { askOverlay(); return; }
+                startGuard();
+            }
+        });
+
         // ---- nút
         Button try1 = button(L("Preview full screen", "Xem thử toàn màn hình"), true);
         try1.setOnClickListener(v -> startPreview());
@@ -281,7 +332,7 @@ public class MainActivity extends Activity {
         }
         refreshSetup();
         boolean on = Prefs.enabled(this) && can;
-        if (on) startGuard();
+        if ((on || Prefs.companion(this)) && can) startGuard();
         toggle.setOnCheckedChangeListener(null);
         toggle.setChecked(on);
         toggle.setOnCheckedChangeListener((v, checked) -> onToggle(checked));
@@ -308,11 +359,10 @@ public class MainActivity extends Activity {
                 return;
             }
             Prefs.setEnabled(this, true);
-            askNotification();
             startGuard();
         } else {
             Prefs.setEnabled(this, false);
-            stopService(new Intent(this, ScreenGuardService.class));
+            if (!Prefs.companion(this)) stopService(new Intent(this, ScreenGuardService.class));
         }
     }
 
@@ -396,9 +446,10 @@ public class MainActivity extends Activity {
 
     private LinearLayout setupCard;
     private TextView setupHeader;
-    private final LinearLayout[] stepRows = new LinearLayout[4];
-    private final TextView[] stepBadges = new TextView[4];
-    private final Button[] stepButtons = new Button[4];
+    private static final int STEPS = 3;
+    private final LinearLayout[] stepRows = new LinearLayout[STEPS];
+    private final TextView[] stepBadges = new TextView[STEPS];
+    private final Button[] stepButtons = new Button[STEPS];
 
     private void buildSetup(LinearLayout col) {
         setupCard = card(col);
@@ -410,16 +461,14 @@ public class MainActivity extends Activity {
                                 "Chỉ cần khi bước 2 bị mờ: Thông tin ứng dụng → ⋮ (góc trên phải) → Cho phép cài đặt bị hạn chế."),
                         L("Open", "Mở")},
                 {L("Display over other apps", "Hiển thị trên ứng dụng khác"),
-                        L("Lets the critters appear on top of your screen.", "Để con vật hiện được lên trên màn hình."),
+                        L("Lets the critters appear on top of your screen. The screensaver turns on right after.",
+                                "Để con vật hiện được lên trên màn hình. Cho phép xong là màn chờ tự bật."),
                         L("Allow", "Cho phép")},
                 {L("Unrestricted battery", "Pin không hạn chế"),
                         L("App info → Battery → Unrestricted, so the phone won't stop the app.",
                                 "Thông tin ứng dụng → Pin → Không hạn chế, để máy không tắt ngầm app."),
-                        L("Open", "Mở")},
-                {L("Allow notifications", "Cho phép thông báo"),
-                        L("Then the screensaver starts by itself.", "Xong bước này màn chờ tự chạy."),
-                        L("Allow", "Cho phép")}};
-        for (int i = 0; i < 4; i++) {
+                        L("Open", "Mở")}};
+        for (int i = 0; i < STEPS; i++) {
             final int step = i + 1;
             LinearLayout row = new LinearLayout(this);
             row.setOrientation(LinearLayout.HORIZONTAL);
@@ -473,12 +522,12 @@ public class MainActivity extends Activity {
         if (setupCard == null) return;
         boolean all = true;
         int current = 0;
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < STEPS; i++) {
             boolean done = stepDone(i + 1);
             if (!done && current == 0) current = i + 1;
             all &= done;
         }
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < STEPS; i++) {
             boolean done = stepDone(i + 1);
             GradientDrawable g = new GradientDrawable();
             g.setShape(GradientDrawable.OVAL);
@@ -490,16 +539,14 @@ public class MainActivity extends Activity {
             // xong rồi thì thu gọn ảnh minh họa
             stepRows[i].getChildAt(1).setVisibility(done ? View.GONE : View.VISIBLE);
         }
-        if (all) {
-            setupHeader.setText(L("✓ All set — the screensaver is on", "✓ Đã xong — màn chờ đang bật"));
-            if (!Prefs.setupFinished(this)) { // xong bước cuối: tự bật màn chờ
-                Prefs.setSetupFinished(this, true);
-                Prefs.setEnabled(this, true);
-                startGuard();
-            }
-        } else {
-            setupHeader.setText(L("Quick setup · 4 steps", "Cài đặt nhanh · 4 bước"));
+        // cho phép hiển thị đè xong là tự bật màn chờ
+        if (Settings.canDrawOverlays(this) && !Prefs.setupFinished(this)) {
+            Prefs.setSetupFinished(this, true);
+            Prefs.setEnabled(this, true);
+            startGuard();
         }
+        setupHeader.setText(all ? L("✓ All set — the screensaver is on", "✓ Đã xong — màn chờ đang bật")
+                : L("Quick setup · 3 steps", "Cài đặt nhanh · 3 bước"));
     }
 
     private void doStep(int step) {

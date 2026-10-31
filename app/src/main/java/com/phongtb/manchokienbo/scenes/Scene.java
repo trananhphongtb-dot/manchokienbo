@@ -12,6 +12,8 @@ public abstract class Scene {
     public int w, h;
     protected final Random rnd = new Random();
     protected float time = 0f;
+    /** Chế độ đồng hành: vài con nhỏ lướt qua rồi đi luôn, không quay lại khi chạm mép, không vẽ nền. */
+    public boolean companion = false;
 
     protected Scene(float dp, float mult) {
         this.dp = dp;
@@ -152,6 +154,10 @@ public abstract class Scene {
      * Trả về góc mới; c.esc = true trong lúc đang quay.
      */
     protected float edge(Walker c, float ang, float margin, float rate, float dt) {
+        if (companion) { // lướt qua rồi đi luôn
+            c.esc = false;
+            return ang;
+        }
         int nx = 0, ny = 0;
         if (c.x < margin) nx = 1; else if (c.x > w - margin) nx = -1;
         if (c.y < margin) ny = 1; else if (c.y > h - margin) ny = -1;

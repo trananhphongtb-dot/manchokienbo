@@ -56,6 +56,8 @@ public class ScreenGuardService extends Service {
     private boolean blackMode = false;
     private long sceneStart;
     private long lastActivity;
+    private VisitView visitView;
+    private long nextVisit;
     private boolean previewPending = false;
 
     private final Runnable tick = new Runnable() {
@@ -70,6 +72,7 @@ public class ScreenGuardService extends Service {
             String a = intent.getAction();
             if (Intent.ACTION_SCREEN_OFF.equals(a)) {
                 hideScene();
+                hideVisit();
                 blackMode = false;
                 setKeepOn(false);
             } else {
@@ -90,6 +93,7 @@ public class ScreenGuardService extends Service {
         km = (KeyguardManager) getSystemService(KEYGUARD_SERVICE);
         am = (AudioManager) getSystemService(AUDIO_SERVICE);
         lastActivity = SystemClock.uptimeMillis();
+        scheduleVisit(lastActivity);
 
         startAsForeground();
 
@@ -133,6 +137,7 @@ public class ScreenGuardService extends Service {
         handler.removeCallbacksAndMessages(null);
         try { unregisterReceiver(screenRx); } catch (Exception ignored) {}
         hideScene();
+        hideVisit();
         if (watcher != null) {
             try { wm.removeView(watcher); } catch (Exception ignored) {}
             watcher = null;
@@ -213,7 +218,7 @@ public class ScreenGuardService extends Service {
     // ---------------------------------------------------------------- vòng lặp
 
     private void onTick() {
-        if (!Prefs.enabled(this) && sceneView == null && !previewPending) {
+        if (!Prefs.enabled(this) && !Prefs.companion(this) && sceneView == null && !previewPending) {
             // Chỉ chạy để xem thử, xem xong thì thôi
             setKeepOn(false);
             stopSelf();
@@ -227,17 +232,28 @@ public class ScreenGuardService extends Service {
         // Đang ở màn khóa hoặc màn đã tắt: không giữ sáng, không hiện gì
         if (!interactive || locked) {
             if (sceneView != null) hideScene();
+            hideVisit();
             setKeepOn(false);
             lastActivity = now;
             return;
         }
 
-        setKeepOn(!blackMode);
+        // chỉ bật chế độ đồng hành thì không giữ màn sáng, để máy tắt màn như bình thường
+        setKeepOn(!blackMode && (Prefs.enabled(this) || sceneView != null));
 
         if (sceneView == null) {
             if (Prefs.skipVideo(this) && videoPlaying()) {
                 lastActivity = now; // đang xem video: coi như đang dùng
+                hideVisit();
                 return;
+            }
+            // chế độ đồng hành: thỉnh thoảng vài con lướt qua
+            if (visitView != null && visitView.finished()) {
+                hideVisit();
+                scheduleVisit(now);
+            } else if (visitView == null && Prefs.companion(this) && now >= nextVisit) {
+                showVisit();
+                scheduleVisit(now);
             }
             if (Prefs.enabled(this) && now - lastActivity >= Prefs.idleSec(this) * 1000L) {
                 showScene();
@@ -252,6 +268,7 @@ public class ScreenGuardService extends Service {
 
     private void showScene() {
         if (sceneView != null || !Settings.canDrawOverlays(this)) return;
+        hideVisit();
         final boolean dbl = Prefs.doubleTap(this);
         sceneView = new SceneView(this, Prefs.scene(this), Prefs.amount(this), dbl);
         lastTapTime = 0;
@@ -344,6 +361,51 @@ public class ScreenGuardService extends Service {
         } catch (Exception ignored) {
         }
         return false;
+    }
+
+    private void scheduleVisit(long now) {
+        long base = Prefs.compFreq(this) * 60_000L;
+        nextVisit = now + (long) (base * (0.6 + Math.random() * 0.8));
+    }
+
+    /** Cửa sổ trong suốt, không nhận chạm: vài con nhỏ lướt qua trong lúc đang dùng app. */
+    private void showVisit() {
+        if (visitView != null || !Settings.canDrawOverlays(this)) return;
+        java.util.ArrayList<String> types = new java.util.ArrayList<>();
+        for (String k : Prefs.COMP_KEYS) if (Prefs.compHas(this, k)) types.add(k);
+        if (types.isEmpty()) return;
+        String type = types.get((int) (Math.random() * types.size()));
+        visitView = new VisitView(this, type);
+        WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                        | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+                        | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+                        | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
+                        | WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
+                PixelFormat.TRANSLUCENT);
+        lp.gravity = Gravity.TOP | Gravity.START;
+        // Android 12+ chỉ cho chạm xuyên qua cửa sổ đủ trong (độ đậm <= 0.8)
+        lp.alpha = 0.6f;
+        if (Build.VERSION.SDK_INT >= 28) {
+            lp.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+        }
+        if (Build.VERSION.SDK_INT >= 30) lp.setFitInsetsTypes(0);
+        try {
+            wm.addView(visitView, lp);
+        } catch (Exception e) {
+            visitView = null;
+        }
+    }
+
+    private void hideVisit() {
+        if (visitView == null) return;
+        VisitView v = visitView;
+        visitView = null;
+        v.stop();
+        try { wm.removeView(v); } catch (Exception ignored) {}
     }
 
     private void hideScene() {
