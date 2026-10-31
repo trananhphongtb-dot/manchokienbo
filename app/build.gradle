@@ -7,7 +7,7 @@ android {
     compileSdk 35
 
     defaultConfig {
-        applicationId 'com.phongtb.manchokienbo'
+        applicationId 'com.phongtb.crawlscape'
         minSdk 26
         targetSdk 35
         versionCode 5
