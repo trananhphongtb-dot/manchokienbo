@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- chân -->
+    <path android:strokeColor="#FFF4E3C3" android:strokeWidth="2.2" android:strokeLineCap="round"
+        android:pathData="M50,46 L40,40 L34,33 M58,46 L68,40 L74,33 M50,50 L38,50 L32,48 M58,50 L70,50 L76,48 M50,54 L40,62 L36,70 M58,54 L68,62 L72,70" />
+    <!-- râu -->
+    <path android:strokeColor="#FFF4E3C3" android:strokeWidth="1.8" android:strokeLineCap="round"
+        android:pathData="M51,32 L46,24 L41,22 M57,32 L62,24 L67,22" />
+    <!-- đầu -->
+    <path android:fillColor="#FFF4E3C3"
+        android:pathData="M48,35 a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 z" />
+    <!-- ngực -->
+    <path android:fillColor="#FFF4E3C3"
+        android:pathData="M49.5,49 a4.5,7 0 1,0 9,0 a4.5,7 0 1,0 -9,0 z" />
+    <!-- bụng -->
+    <path android:fillColor="#FFF4E3C3"
+        android:pathData="M46,67 a8,11 0 1,0 16,0 a8,11 0 1,0 -16,0 z" />
+    <path android:fillColor="#55FFFFFF"
+        android:pathData="M49,63 a2.5,4 0 1,0 5,0 a2.5,4 0 1,0 -5,0 z" />
+</vector>
